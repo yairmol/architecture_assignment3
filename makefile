@@ -5,13 +5,13 @@ ass3: ass3.s drone.o printer.o scheduler.o target.o
 drone.o: drone.s
 	nasm -g -f elf drone.s -o drone.o
 
-printer.o:
+printer.o: printer.s
 	nasm -g -f elf printer.s -o printer.o
 
-scheduler.o:
+scheduler.o: scheduler.s
 	nasm -g -f elf scheduler.s -o scheduler.o
 
-target.o:
+target.o: target.s
 	nasm -g -f elf target.s -o target.o
 
 clean:

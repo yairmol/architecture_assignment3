@@ -1,10 +1,10 @@
 ; parse_arg(arg, format, index)
 %macro parse_arg 3
 	push ebx				; save ebx in case sscanf overrides some registers
-	push dword [ebx + 4*%3]
-	push string_format
-	call printf				; printf("%s\n", argv[index])
-	add esp, 8
+	; push dword [ebx + 4*%3]
+	; push string_format
+	; call printf				; printf("%s\n", argv[index])
+	;add esp, 8
 	pop ebx
 	push ebx
 	push %1
@@ -28,19 +28,18 @@
 ; struct drone-co-routine {
 ;	void* codep;	the pointer to the next line of code to execute
 ;	void* sp;		stack pointer for the drone co-routine
-;	tword x;		drone's x coordinate
-;	tword y;		drone's y coordinate
-;	tword angle;	drone's angle from the x axix in degrees [0, 360] (heading)
-;	tword speed; 	drone's speed
+;	double x;		drone's x coordinate
+;	double y;		drone's y coordinate
+;	double angle;	drone's angle from the x axix in degrees [0, 360] (heading)
+;	double speed; 	drone's speed
 ; }
-; struct size: 48
+; struct size: 40
 
 ; define constants
 STKSZ 	equ 16*1024
 CODEP 	equ 0
 FLAGSP 	equ 4
 SPP 	equ 8
-DRSZ	equ 48 				; TODO: define the Drone co-routine structue and set it's size here
 
 section .rodata
 	argument_error_string: db "error: not enough arguments", 10, 0
@@ -49,9 +48,14 @@ section .rodata
 	string_format: db "%s", 10, 0
 	hexa_string_format: db "%X", 10, 0
 	right_string: db "rightmost", 10, 0
+	done_string: db "DONE!", 10, 0
+	pointer_string_format: db "main esp: %p",10,0
 
 section .text
 	global drones_array
+	global main_cr
+	global SPT
+	global CURR
 
 section .data
 	; game configuration variables
@@ -61,8 +65,15 @@ section .data
 	d: dq 0.0	; maximum distnace to destroy target
 	seed: dw 0	; seed for the LFSR random generator
 
+	SPT: dd 0	; holds the stack pointer while init
+	CURR: dd 0	; pointer to the currently running co-routine
 	; a memory location holding a pointer to the beggining of the drones co-routine array
 	drones_array: dd 0
+
+	; define the main co-routine
+	main_cr: dd main
+	flags_main: dd 1
+	sp_main: dd 0
 
 	; Structure for the scheduler co-routine
 	scheduler_cr: dd scheduler_co_routine
@@ -81,6 +92,7 @@ section .bss
 section .text
 	global main
 	global random_generator
+	global resume
 	extern stderr
 	extern fprintf
 	extern sscanf
@@ -111,13 +123,14 @@ main:
 	parse_arg K, decimal_string_format, 3
 	parse_arg d, float_string_format, 4
 	parse_arg seed, decimal_string_format, 5
-	mov dword [seed], 0xACE1
-	mov eax, 0
-	call random_generator
-	push eax
-	push hexa_string_format
-	call printf
-	add esp, 8
+
+	; mov dword [seed], 0xACE1
+	; mov eax, 0
+	; call random_generator
+	; push eax
+	; push hexa_string_format
+	; call printf
+	; add esp, 8
 	; finit
 	; fld qword[d]
 	; sub esp,8
@@ -129,14 +142,56 @@ main:
 	; print_arg dword[R], decimal_string_format
 	; print_arg dword[K], decimal_string_format
 	; print_arg dword[seed], decimal_string_format
+	; initiate the scheduler and printer co-routines
+	debug: mov ebx, scheduler_cr
+	call co_init
+	mov ebx, printer_cr
+	call co_init
 
-	; create an array of drones co-routines
-	push DRSZ
+	; create an array of pointers for drones co-routines
+	push 4					; ponter size
 	push dword [N]
-	call calloc				; calloc(N, DRSZ) allocate an array of size N, where each element of the array is of size DRSZ
+	call calloc				; calloc(N, 4) allocate an array of size N, where each element of the array is a pointer to a co-routine struct
 	add esp, 8
 	mov [drones_array], eax	; set the drone_array to point to the begining of the drones co-routine array
-	; TODO: initiate each co-routine
+	mov ebx, 0
+	; initialize all drones co-routine
+	drone_init_for_start:
+		push ebx
+		push done_string
+		call printf
+		add esp, 4
+		pop ebx
+		cmp ebx, [N]
+		je drone_init_for_end
+		; init drone with id ebx
+		call drone_init
+		inc ebx
+		jmp drone_init_for_start
+	drone_init_for_end:
+	push esp
+	push pointer_string_format
+	call printf
+	add esp, 8
+	mov dword [CURR], main_cr
+	push dword main_cr
+	push pointer_string_format
+	call printf
+	add esp, 8
+	push dword [CURR]
+	push pointer_string_format
+	call printf
+	add esp, 8
+	push done_string
+	call printf
+	add esp, 4
+	mov ecx, [CURR]
+	; begin the simulation by starting the scheduler co-routine 
+	mov ebx, scheduler_cr
+	call resume
+	push done_string
+	call printf
+	add esp, 4
 	end_main:
 	push dword [drones_array]
 	call free				; free the allocated memory for the drones array
@@ -146,64 +201,75 @@ main:
 	pop ebp
 	ret
 
-; TODO: fix this to match our co-routine structure
-; co_init:
-; 	pushad
-; 	bts dword [EBX+FLAGSP],0 ; initialized?
-; 	jc init_done
-; 	mov EAX,[EBX+CODEP] ; Get initial IP
-; 	mov [SPT], ESP
-; 	mov ESP,[EBX+SPP] ; Get initial SP
-; 	mov EBP, ESP ; Also use as EBP
-; 	push EAX ; Push initial "return" address
-; 	pushfd ; and flags
-; 	pushad ; and all other regs
-; 	mov [EBX+SPP],ESP ; Save new SP
-; 	mov ESP, [SPT] ; Restore old SP
-; init_done:
-; 	popad
-; 	ret
+; initialization method for the printer and scheduler co-routine
+; ebx is pointing to the relevent co-routine
+co_init:
+	pushad
+	bts dword [ebx + FLAGSP],0	; initialized?
+	jc init_done
+	mov eax, [ebx + CODEP] 		; Get initial IP
+	mov [SPT], esp				; save the stack pointer
+	mov esp, [ebx + SPP] 		; Get initial SP
+	mov ebp, esp 				; Also use as EBP
+	push eax 					; Push initial "return" address
+	pushfd 						; and flags
+	pushad 						; and all other regs
+	mov [ebx + SPP], esp		; Save new SP
+	mov esp, [SPT] 				; Restore old SP
+init_done:
+	popad
+	ret
 
-; ; TODO: fix this to match our co-routine structure
-; resume:
-; 	pushf ; Save state of caller
-; 	pusha
-; 	mov EDX, [CURR]
-; 	mov [EDX+SPP],ESP ; Save current SP
-; do_resume:
-; 	mov ESP, [EBX+SPP] ; Load SP (resumed co)
-; 	mov [CURR], EBX
-; 	popa ; Restore resumed co-routine state
-; 	popf
-;	ret ; "return" to resumed co-routine!
+; resume method for the printer and scheduler co-routines
+; assume that ebx hold the pointer to the resumed co-routine and CURR is apointer to the current running co-routine
+; when this method is called the return address is pushed, then we push the state of computation and retrun to the resimed co-routine
+resume:
+	pushfd 						; Save state of caller
+	pushad
+	mov edx, [CURR]
+	mov [edx + SPP], esp 		; Save current SP
+do_resume:
+	mov esp, [ebx + SPP] 		; Load SP (resumed co)
+	mov [CURR], ebx				; set the new current co-routine
+	popad 						; Restore resumed co-routine state
+	popfd
+	ret 						; "return" to resumed co-routine!
 
 random_generator:
-; TODO: implement the LFSR psuedo-random generator as specified in the instructions
 	push ebp
 	mov ebp, esp
 	sub esp, 2
 	pushad
 	mov bx, [seed]		; bx will be our shift register
-	; calculate the input bit as [16] XOR [14] XOR [13] XOR [11]
-	mov cx, bx
-	and cx, 1			; cx now hold the 16th bit
-	mov dx, bx
-	and dx, 4			; dx now hold the 14th bit
-	shr dx, 2			; set the location of the 14th bit to the 16th bit so we could xor the two bits
-	xor cx, dx			; xor the two bits and store it in cx
-	mov dx, bx
-	and dx, 8			; dx now holds the 13th bit
-	shr dx, 3			; set the location of the 13th bit to the 16th bit so we could xor the two bits
-	xor cx, dx			; xor the two bits and store it in cx
-	mov dx, bx
-	and dx, 32			; dx now holds the 11th bit
-	shr dx, 5			; set the location of the 13th bit to the 16th bit so we could xor the two bits
-	xor cx, dx			; xor the two bits and store in cx
-	shr bx, 1			; shift the shift register one time
-	shl cx, 15			; set the first bit of cx to be the calculated bit
-	add bx, cx			; set the first bit of bx to be the calculated bit
-	mov [ebp - 2], bx 
+	mov esi, 0			; set for variable to 0
+	for_random_start:
+		; calculate the input bit as [16] XOR [14] XOR [13] XOR [11]
+		cmp esi, 16
+		je for_random_end
+		mov cx, bx
+		and cx, 1		; cx now hold the 16th bit
+		mov dx, bx
+		and dx, 4		; dx now hold the 14th bit
+		shr dx, 2		; set the location of the 14th bit to the 16th bit so we could xor the two bits
+		xor cx, dx		; xor the two bits and store it in cx
+		mov dx, bx
+		and dx, 8		; dx now holds the 13th bit
+		shr dx, 3		; set the location of the 13th bit to the 16th bit so we could xor the two bits
+		xor cx, dx		; xor the two bits and store it in cx
+		mov dx, bx
+		and dx, 32		; dx now holds the 11th bit
+		shr dx, 5		; set the location of the 13th bit to the 16th bit so we could xor the two bits
+		xor cx, dx		; xor the two bits and store in cx
+		shr bx, 1		; shift the shift register one time
+		shl cx, 15		; set the first bit of cx to be the calculated bit
+		add bx, cx		; set the first bit of bx to be the calculated bit
+		inc esi
+		jmp for_random_start
+	for_random_end:
+	mov [ebp - 2], bx
+	mov [seed], bx		; store the new value in seed for next time 
 	popad
+	mov eax, 0
 	mov ax, [ebp - 2]
 	add esp, 2
 	mov esp, ebp
