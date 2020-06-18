@@ -51,13 +51,11 @@ section .rodata
 	done_string: db "DONE!", 10, 0
 	pointer_string_format: db "main esp: %p",10,0
 
-section .text
+section .data
 	global drones_array
 	global main_cr
 	global SPT
 	global CURR
-
-section .data
 	; game configuration variables
 	N: dd 0		; number of drones
 	R: dd 0		; number of rounds after which a drone is eliminated
@@ -88,6 +86,7 @@ section .data
 section .bss
 	stk_scheduler: resb STKSZ
 	stk_printer: resb STKSZ
+	stk_target: resb STKSZ
 
 section .text
 	global main
@@ -99,10 +98,11 @@ section .text
 	extern printf
 	extern calloc
 	extern free
-
+	extern target_co_routine
 	extern scheduler_co_routine
 	extern printer_co_routine
 	extern drone_init
+	extern init_target
 	
 main:
 	push ebp
@@ -147,6 +147,7 @@ main:
 	call co_init
 	mov ebx, printer_cr
 	call co_init
+	call init_target
 
 	; create an array of pointers for drones co-routines
 	push 4					; ponter size
@@ -222,7 +223,7 @@ init_done:
 
 ; resume method for the printer and scheduler co-routines
 ; assume that ebx hold the pointer to the resumed co-routine and CURR is apointer to the current running co-routine
-; when this method is called the return address is pushed, then we push the state of computation and retrun to the resimed co-routine
+; when this method is called the return address is pushed, then we push the state of computation and retrun to the resumed co-routine
 resume:
 	pushfd 						; Save state of caller
 	pushad
