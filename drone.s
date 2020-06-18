@@ -1,5 +1,6 @@
 %macro scale 2
-	fld ax     ;load ax
+    mov qword [randNum], ax
+	fld qword [randNum]    ;load ax
     fmul %2   ; ax * a
     fmul 2     ;ax * (b - a)
     fdiv 65535     ;(ax * (b-a))/(2^16 -1)
@@ -30,6 +31,7 @@ section .data
     speed:          dq 0
     delta_speed:    dq 0
     score:          dd 0
+    randNum:        dq 0
 
 section .text
     global drone_init
@@ -54,8 +56,8 @@ change_drone_position:
     ; push ax
     ; call angle_scale
     scale delta_angle, 60
-    //add esp, 4
-    //mov [delta_angle], eax               ;putting the random number in delta_angle
+    ;add esp, 4
+    ;mov [delta_angle], eax               ;putting the random number in delta_angle
     call random_generator
     ; push ax
     ; call speed_scale
