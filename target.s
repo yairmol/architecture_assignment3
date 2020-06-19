@@ -12,6 +12,8 @@ STKSZ equ 64*4
 %endmacro
 
 section .data
+	global target_cr
+	
 	target_cr: dd target_co_routine
 	flags_target: dd 0
 	sp_target: dd stk_target + STKSZ
