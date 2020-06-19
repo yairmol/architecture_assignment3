@@ -47,6 +47,11 @@ section .data
 	global SPT
 	global CURR
 	global scheduler_cr
+	
+	global N
+	global K
+	global R
+
 	; game configuration variables
 	N: dd 0		; number of drones
 	R: dd 0		; number of rounds after which a drone is eliminated
