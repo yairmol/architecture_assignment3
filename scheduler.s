@@ -13,7 +13,6 @@ call printf
 add esp, 8
 mov ebx, main_cr
 call resume
-ret
 ; TODO: implement the scheduler co-routine as follows:
 ; (*) start from i=1
 ; (*)if drone i%N is active

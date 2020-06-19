@@ -25,16 +25,6 @@
 	pop ebx					; restore ebx
 %endmacro
 
-; struct drone-co-routine {
-;	void* codep;	the pointer to the next line of code to execute
-;	void* sp;		stack pointer for the drone co-routine
-;	double x;		drone's x coordinate
-;	double y;		drone's y coordinate
-;	double angle;	drone's angle from the x axix in degrees [0, 360] (heading)
-;	double speed; 	drone's speed
-; }
-; struct size: 40
-
 ; define constants
 STKSZ 	equ 16*1024
 CODEP 	equ 0
@@ -44,7 +34,7 @@ SPP 	equ 8
 section .rodata
 	argument_error_string: db "error: not enough arguments", 10, 0
 	decimal_string_format: db "%d", 0
-	float_string_format: db "%lf", 0
+	float_string_format: db "%f", 0
 	string_format: db "%s", 10, 0
 	hexa_string_format: db "%X", 10, 0
 	right_string: db "rightmost", 10, 0
@@ -56,6 +46,7 @@ section .data
 	global main_cr
 	global SPT
 	global CURR
+	global scheduler_cr
 	; game configuration variables
 	N: dd 0		; number of drones
 	R: dd 0		; number of rounds after which a drone is eliminated
@@ -67,11 +58,12 @@ section .data
 	CURR: dd 0	; pointer to the currently running co-routine
 	; a memory location holding a pointer to the beggining of the drones co-routine array
 	drones_array: dd 0
+	drone_cr_array: dd 0
 
 	; define the main co-routine
 	main_cr: dd main
 	flags_main: dd 1
-	sp_main: dd 0
+	sp_main: dd esp
 
 	; Structure for the scheduler co-routine
 	scheduler_cr: dd scheduler_co_routine
@@ -86,12 +78,12 @@ section .data
 section .bss
 	stk_scheduler: resb STKSZ
 	stk_printer: resb STKSZ
-	stk_target: resb STKSZ
 
 section .text
 	global main
 	global random_generator
 	global resume
+	global co_init
 	extern stderr
 	extern fprintf
 	extern sscanf
@@ -142,7 +134,7 @@ main:
 	; print_arg dword[R], decimal_string_format
 	; print_arg dword[K], decimal_string_format
 	; print_arg dword[seed], decimal_string_format
-	; initiate the scheduler and printer co-routines
+	; initiate the scheduler, printer and target co-routines
 	debug: mov ebx, scheduler_cr
 	call co_init
 	mov ebx, printer_cr
@@ -150,19 +142,14 @@ main:
 	call init_target
 
 	; create an array of pointers for drones co-routines
-	push 4					; ponter size
+	push dword 4			; ponter size
 	push dword [N]
-	call calloc				; calloc(N, 4) allocate an array of size N, where each element of the array is a pointer to a co-routine struct
+	call calloc				; calloc(N, 4) allocate an array of size N, where each element of the array is a pointer to a drone struct
 	add esp, 8
 	mov [drones_array], eax	; set the drone_array to point to the begining of the drones co-routine array
 	mov ebx, 0
 	; initialize all drones co-routine
 	drone_init_for_start:
-		push ebx
-		push done_string
-		call printf
-		add esp, 4
-		pop ebx
 		cmp ebx, [N]
 		je drone_init_for_end
 		; init drone with id ebx
@@ -170,33 +157,15 @@ main:
 		inc ebx
 		jmp drone_init_for_start
 	drone_init_for_end:
-	push esp
-	push pointer_string_format
-	call printf
-	add esp, 8
 	mov dword [CURR], main_cr
-	push dword main_cr
-	push pointer_string_format
-	call printf
-	add esp, 8
-	push dword [CURR]
-	push pointer_string_format
-	call printf
-	add esp, 8
-	push done_string
-	call printf
-	add esp, 4
-	mov ecx, [CURR]
 	; begin the simulation by starting the scheduler co-routine 
 	mov ebx, scheduler_cr
 	call resume
 	push done_string
 	call printf
 	add esp, 4
+	call free_memory
 	end_main:
-	push dword [drones_array]
-	call free				; free the allocated memory for the drones array
-	add esp, 4
 	popad
 	mov esp, ebp
 	pop ebp
@@ -273,6 +242,32 @@ random_generator:
 	mov eax, 0
 	mov ax, [ebp - 2]
 	add esp, 2
+	mov esp, ebp
+	pop ebp
+	ret
+
+free_memory:
+	push ebp
+	mov ebp, esp
+	pushad
+	mov ecx, 0
+	free_memory_for_start:
+		; TODO; fix this to free the real stack
+		mov ebx, [drones_array + ecx*4]
+		push ebx			; save ebx in case free overrides it
+		push dword [ebx + SPP]
+		call free
+		add esp, 4
+		pop ebx				; restore ebx
+		push ebx
+		call free			; free the allocated drone co-routine struct
+		add esp, 4
+	free_memory_for_end:
+	; free the drone pointers array
+	push dword [drones_array]
+	call free				; free the allocated memory for the drones array
+	add esp, 4
+	popad
 	mov esp, ebp
 	pop ebp
 	ret
