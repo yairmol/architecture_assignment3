@@ -24,10 +24,10 @@ section .data
     extern K
     extern R
     extern drones_array
+    extern printer_cr
 
 scheduler_co_routine:
 
-    finit
     sub esp, 8
 
     ; push esp
@@ -37,15 +37,15 @@ scheduler_co_routine:
     ; mov ebx, main_cr
     ; call resume
 
-    scheduler_start:
+    mov edi, 1  ;edi = i
     mov ecx, [N]
     mov [ebp - 4], ecx  ;   [ebp - 4] -> active drones
-
-    mov edi, 0
-    mov edi, 1  ;edi = i
+    scheduler_start:
     mov eax, 0
-    mov eax, [N]
-    div edi
+    mov eax, edi
+    mov edx, 0
+    mov ecx, [N]
+    div ecx
     mov ecx, edx    ;ecx = i % N
     ;TODO check if a drone is active
     dec ecx
@@ -55,12 +55,13 @@ scheduler_co_routine:
     call resume
     no_active:
     inc edi     ;i++
-    mov eax, [K]
-    div edi
+    mov eax, edi
+    mov ecx, [K]
+    div ecx
     mov ecx, edx    ;ecx = i % K
     cmp ecx, 0
     jne no_print
-    mov ebx, 0  ;printer's co-routine
+    mov ebx, printer_cr  ;printer's co-routine
     call resume
     no_print:
     mov eax, edi    ;eax = i

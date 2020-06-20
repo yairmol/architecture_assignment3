@@ -47,6 +47,7 @@ section .data
 	global SPT
 	global CURR
 	global scheduler_cr
+	global printer_cr
 	
 	global N
 	global K
@@ -165,6 +166,9 @@ main:
 	drone_init_for_end:
 	mov dword [CURR], main_cr
 	; begin the simulation by starting the scheduler co-routine 
+	push done_string
+	call printf
+	add esp, 4
 	mov ebx, scheduler_cr
 	call resume
 	push done_string

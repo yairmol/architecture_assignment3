@@ -11,8 +11,19 @@
     fdivp       ;(ax * (b-a))/(2^16 -1)
     fld qword [%2]
     faddp        ;(ax * (b-a))/(2^16 -1) +a
+    print_float
     fstp qword [%1]
     ffree
+%endmacro
+
+%macro print_float 0
+    pushad
+    sub esp, 8
+    fst qword [esp]
+    push float_string_format
+    call printf
+    add esp, 12
+    popad
 %endmacro
 
 ; struct drone-co-routine {
@@ -27,7 +38,7 @@
 ; }
 ; struct size: 48
 
-CRSZ    equ 48     ; co routine struct size is 12 
+CRSZ    equ 48     ; co routine struct size is 48
 STKSZ 	equ 16*1024
 CODEP 	equ 0
 FLAGSP 	equ 4
@@ -75,14 +86,15 @@ section .text
     extern resume
     
 
-change_drone_position:      
+change_drone_position: 
+         
     push ebp
 	mov ebp, esp
 	;//sub esp, 4
     pushfd
 	pushad
-    finit
-
+    ; finit
+    ffree
     call random_generator
     scale delta_angle, min_delta_angle, max_delta_angle
     call random_generator
@@ -248,69 +260,6 @@ drone_co_routine:
     mov ebx, scheduler_cr ;TODO: go to scheduler co routine
     call resume
 
-    
-
-
-    
-; TODO: implement the drone co-routine
-; (*) calculate random heading change angle  ∆α       ; generate a random number in range [-60,60] degrees, with 16 bit resolution
-; (*) calculate random speed change ∆a         ; generate random number in range [-10,10], with 16 bit resolution        
-; (*) calculate a new drone position as follows:
-;     (*) first move speed units at the direction defined by the current angle, wrapping around the torus if needed.
-;         For example, if speed=60 then move 60 units in the current direction.
-;     (*) then change the current angle to be α + ∆α, keeping the angle between [0, 360] by wraparound if needed
-;     (*) then change the current speed to be speed + ∆a, keeping the speed between [0, 100] by cutoff if needed
-; (*) while mayDestroy(…) to check if a drone may destroy the target
-;     (*) destroy the target	
-;     (*) resume target co-routine
-;     (*) calculate random angle ∆α       ; generate a random number in range [-60,60] degrees, with 16 bit resolution
-;     (*) calculate random speed change ∆a    ; generate random number in range [-10,10], with 16 bit resolution        
-;     (*) calculate a new drone position as follows:
-;         (*) first move speed units at the direction defined by the current angle, wrapping around the torus if needed. 
-;         (*) then change the current angle to be α + ∆α, keeping the angle between [0, 360] by wraparound if needed
-;         (*) then change the current speed to be speed + ∆a, keeping the speed between [0, 100] by cutoff if needed
-; (*) end while 	
-;     (*) switch back to a scheduler co-routine by calling resume(scheduler)
-
-; angle_scale:
-;     push ebp
-; 	mov ebp, esp
-;     pushfd
-; 	pushad
-;     finit
-;     fld qword [ebp + 8]     ;load ax
-;     fmul 120   ; ax * 120
-;     fdiv 65535     ;(ax * 120)/(2^16 -1)
-;     fsub 60     ;(ax * 120)/(2^16 -1) -60
-;     fst qword [delta_angle]
-;     ffree
-;     popad
-;     popfd
-;     mov esp, ebp
-; 	pop ebp
-; 	ret
-
-; speed_scale:
-;     push ebp
-; 	mov ebp, esp
-; 	pushfd
-;     pushad
-
-;     finit
-;     fld qword [ebp + 8]     ;load ax
-;     fmul 20   ; ax * 20
-;     fdiv 65535     ;(ax * 20)/(2^16 -1)
-;     fsub 10     ;(ax * 120)/(2^16 -1) -10
-;     fst qword [delta_speed]
-;     ffree
-
-;     popad
-;     popfd
-;     mov esp, ebp
-; 	pop ebp
-; 	ret
-
-
 
 ; assume ebx holds the id of the drone
 drone_init:
@@ -335,13 +284,13 @@ drone_init:
 
     ; generate random initial properties
     call random_generator       ; generate initial x coordinate
-    scale zero, hundred, ebx + XP
+    scale ebx + XP, zero, hundred
     call random_generator       ; generate initial y coordinate
-    scale zero, hundred, ebx + YP
+    scale ebx + YP, zero, hundred
     call random_generator       ; generate initial angle
-    scale zero, hundred, ebx + SPEEDP
+    scale ebx + SPEEDP, zero, hundred
     call random_generator       ; generate initial speed
-    scale zero, max_angle, ebx + ANGLEP
+    scale ebx + ANGLEP, zero, max_angle
     ; push eax
     ; push decimal_string_format
     ; call printf
