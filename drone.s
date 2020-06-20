@@ -110,23 +110,34 @@ change_drone_position:
     fmulp               ; angle * pi / 180
     fcos                ; cosα
     fmul qword [speed]  ; speed * cosα
-    push dword 99
-    ficom dword [esp]           ;compare ST(0) with the value of the real8_var variable
-    fstsw ax            ;copy the Status Word containing the result to AX
-    fwait               ;insure the previous instruction is completed
-    sahf                ;transfer the condition codes to the CPU's flag register
-    ;jpe error_handler  ;the comparison was indeterminate
-        
-    jb    no_x_wrap     ;only the C0 bit (CF flag) would be set if no error   => x < 99
-    jz    no_x_wrap     ;only the C3 bit (ZF flag) would be set if no error    => x = 99
 
+    ; fld qword [angle]   ;load angle
+    ; fldpi
+    ; fdiv 180
+    ; fmulp             ;angle * pi / 180
+    ; fcos                ;cosα
+    ; fmul qword [speed] ;x = speed * cosα
     push dword 100
-    fild dword [esp]
-    pop eax
-    fsubp               ; if (x > 100) then  x = x - 100
-
-    no_x_wrap:
+    fprem dword [esp]
     fst qword [x]
+
+    ; push dword 99
+    ; ficom dword [esp]           ;compare ST(0) with the value of the real8_var variable
+    ; fstsw ax            ;copy the Status Word containing the result to AX
+    ; fwait               ;insure the previous instruction is completed
+    ; sahf                ;transfer the condition codes to the CPU's flag register
+    ; ;jpe error_handler  ;the comparison was indeterminate
+        
+    ; jb    no_x_wrap     ;only the C0 bit (CF flag) would be set if no error   => x < 99
+    ; jz    no_x_wrap     ;only the C3 bit (ZF flag) would be set if no error    => x = 99
+
+    ; push dword 100
+    ; fild dword [esp]
+    ; pop eax
+    ; fsubp               ; if (x > 100) then  x = x - 100
+
+    ; no_x_wrap:
+    ; fst qword [x]
     ffree
 
     ; calculate new y
@@ -139,23 +150,33 @@ change_drone_position:
     fmulp               ; angle * pi / 180
     fsin                ; sinα
     fmul qword [speed]
-    push dword 99
-    ficom dword [esp]          ;compare ST(0) with the value of the real8_var variable
-    fstsw ax            ;copy the Status Word containing the result to AX
-    fwait               ;insure the previous instruction is completed
-    sahf                ;transfer the condition codes to the CPU's flag register
-    ;jpe error_handler  ;the comparison was indeterminate
-        
-    jb    no_y_wrap     ;only the C0 bit (CF flag) would be set if no error   => x < 99
-    jz    no_y_wrap     ;only the C3 bit (ZF flag) would be set if no error    => x = 99
-    
+    ; fld qword [angle]
+    ; fldpi
+    ; fdiv 180
+    ; fmulp             ;angle * pi / 180
+    ; fsin
+    ; fmul qword [speed]  ;y = speed * sinα
     push dword 100
-    fild dword [esp]
-    pop eax
-    fsubp               ; if (y > 100) then  y = y - 100
-
-    no_y_wrap:
+    fprem dword [esp]
     fst qword [y]
+
+    ; push dword 99
+    ; ficom dword [esp]          ;compare ST(0) with the value of the real8_var variable
+    ; fstsw ax            ;copy the Status Word containing the result to AX
+    ; fwait               ;insure the previous instruction is completed
+    ; sahf                ;transfer the condition codes to the CPU's flag register
+    ; ;jpe error_handler  ;the comparison was indeterminate
+        
+    ; jb    no_y_wrap     ;only the C0 bit (CF flag) would be set if no error   => x < 99
+    ; jz    no_y_wrap     ;only the C3 bit (ZF flag) would be set if no error    => x = 99
+    
+    ; push dword 100
+    ; fild dword [esp]
+    ; pop eax
+    ; fsubp               ; if (y > 100) then  y = y - 100
+
+    ; no_y_wrap:
+    ; fst qword [y]
     ffree
 
     ; calculate new angle
@@ -164,20 +185,24 @@ change_drone_position:
     ;fst qword [angle]
     ; wraparound:       ;
     push dword 360
-    ficom dword [esp]   ;compare ST(0) with the value of the real8_var variable
-    fstsw ax          ;copy the Status Word containing the result to AX
-    fwait             ;insure the previous instruction is completed
-    sahf              ;transfer the condition codes to the CPU's flag register
-    ;jpe error_handler ;the comparison was indeterminate
+    fprem dword [esp]
+    fsub qword [angle]
+
+    ; push dword 360
+    ; ficom dword [esp]   ;compare ST(0) with the value of the real8_var variable
+    ; fstsw ax          ;copy the Status Word containing the result to AX
+    ; fwait             ;insure the previous instruction is completed
+    ; sahf              ;transfer the condition codes to the CPU's flag register
+    ; ;jpe error_handler ;the comparison was indeterminate
         
-    jb    wraparound_end   ;only the C0 bit (CF flag) would be set if no error   => angle < 360
-    jz    wraparound_end  ;only the C3 bit (ZF flag) would be set if no error    => angle = 360
+    ; jb    wraparound_end   ;only the C0 bit (CF flag) would be set if no error   => angle < 360
+    ; jz    wraparound_end  ;only the C3 bit (ZF flag) would be set if no error    => angle = 360
     
-    push dword 360
-    fisub dword [esp]
-    pop eax
-    wraparound_end:
-    fst qword [angle]
+    ; push dword 360
+    ; fisub dword [esp]
+    ; pop eax
+    ; wraparound_end:
+    ; fst qword [angle]
     ffree
 
     ; calculate new speed
