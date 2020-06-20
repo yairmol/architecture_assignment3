@@ -143,6 +143,18 @@ change_drone_position:
     pop eax
     fld qword [temp]
     fprem
+
+    ftst    ;compare ST(0) with 0.0
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    ja not_negative_x
+    jz not_negative_x
+    push dword 100
+    fild dword [esp]
+    pop eax
+    faddp
+    not_negative_x:
     fstp qword [ebx + XP]
     ffree
 
@@ -162,19 +174,41 @@ change_drone_position:
     pop eax
     fld qword [temp]
     fprem
+    ftst    ;compare ST(0) with 0.0
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    ja not_negative_y
+    jz not_negative_y
+    push dword 100
+    fild dword [esp]
+    pop eax
+    faddp
+    not_negative_y:
     fstp qword [ebx + YP]
     ffree
 
     ; calculate new angle
     fld qword [ebx + ANGLEP]   
     fadd qword [delta_angle]   ;angle += ∆α
-    ; wraparound:       ;
+    ; wraparound:       
     fstp qword [temp]
     push dword 360
     fild dword [esp]
     pop eax
     fld qword [temp]
     fprem
+    ftst    ;compare with 0.0
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    ja not_negative_angle
+    jz not_negative_angle
+    push dword 360
+    fild dword [esp]
+    pop eax
+    faddp
+    not_negative_angle:
     fstp qword [ebx + ANGLEP]
     ffree
 
@@ -188,11 +222,19 @@ change_drone_position:
     fstsw ax          ;copy the Status Word containing the result to AX
     fwait             ;insure the previous instruction is completed
     sahf              ;transfer the condition codes to the CPU's flag register
-    jb change_drone_position_end   ;only the C0 bit (CF flag) would be set if no error   => speed < 100
-
+    jb check_negative_speed   ;only the C0 bit (CF flag) would be set if no error   => speed < 100
     push dword 100
     fild dword [esp]
     pop eax
+    fstp qword [ebx + SPEEDP]
+    jmp change_drone_position_end
+    check_negative_speed:
+    ftst    ;compare ST(0) with 0.0
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    ja change_drone_position_end
+    fldz    ; fld 0
     fstp qword [ebx + SPEEDP]
 
     change_drone_position_end:
