@@ -69,7 +69,7 @@ section .data
 	; define the main co-routine
 	main_cr: dd main
 	flags_main: dd 1
-	sp_main: dd esp
+	sp_main: dd 0
 
 	; Structure for the scheduler co-routine
 	scheduler_cr: dd scheduler_co_routine

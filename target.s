@@ -1,33 +1,44 @@
 STKSZ equ 64*4
-; scale(a,b) scales ax to [a,b] range
+; scale(loc,a,b) scales ax to range [a,b] and stores it in loc
 %macro scale 3
-    mov qword [randNum], ax
-	fld qword [randNum]    ;load ax
-    fmul %2   ; ax * a
-    fmul 2     ;ax * (b - a)
-    fdiv 65535     ;(ax * (b-a))/(2^16 -1)
-    fsub %2     ;(ax * (b-a))/(2^16 -1) +a
-    fst qword [%1]
+    push eax
+	fild dword [esp]    ;load ax
+    pop eax
+    fld qword [%3]
+    fld qword [%2]
+    fsubp
+    fmulp       ; ax * (b-a)
+    fild dword [max_int]
+    fdivp       ;(ax * (b-a))/(2^16 -1)
+    fld qword [%2]
+    faddp        ;(ax * (b-a))/(2^16 -1) +a
+    fstp qword [%1]
     ffree
 %endmacro
 
 section .data
 	global target_cr
-	
+	extern CURR
+
 	target_cr: dd target_co_routine
 	flags_target: dd 0
 	sp_target: dd stk_target + STKSZ
 	target_x: dq 0.0
 	target_y: dq 0.0
 
+	zero: dq 0.0
+	hundred: dq 0.0
+	max_int: dd 65535
+
 section .bss
 	stk_target: resb STKSZ
 
 section .text
     global target_co_routine
-    global createTarget
+    global init_target
     extern random_generator
 	extern co_init
+	extern resume
 
 target_co_routine:
 	; (*) call createTarget() function to create a new target with randon coordinates on the game board
@@ -40,9 +51,9 @@ target_co_routine:
 createTarget:
 	pushad
 	call random_generator
-	scale dword 0, dword 100, target_x
+	scale zero, hundred, target_x
 	call random_generator
-	scale dword 0, dword 100, target_y
+	scale hundred, zero, target_y
 	popad
 	ret
 

@@ -22,6 +22,7 @@ section .text
 section .data
     extern N
     extern K
+    extern R
     extern drones_array
 
 scheduler_co_routine:
@@ -49,7 +50,7 @@ scheduler_co_routine:
     ;TODO check if a drone is active
     dec ecx
     mov ebx, [drones_array + 4 * ecx]  ;i's drone co-routine
-    bt [ebx + FLAGSP], 2    ;if a drone is active
+    bt dword [ebx + FLAGSP], 2    ;if a drone is active
     jc no_active
     call resume
     no_active:
@@ -72,7 +73,7 @@ scheduler_co_routine:
     mov ecx, edx    ;ecx = (i/N)%R
     cmp ecx, 0
     jne no_destroy
-    //TODO: destroy
+    ;//TODO: destroy
     mov esi, 0  ; esi = 0
     mov eax, 0  ; eax = drone with the lowest score
     mov ecx, 0xFFFFFFFF  ;ecx = score
@@ -80,7 +81,7 @@ scheduler_co_routine:
     cmp esi, dword [N]  
     je check_scores_end
     mov ebx, [drones_array + 4 * esi]
-    bt [ebx + FLAGSP], 2    ;is the drone active?
+    bt dword [ebx + FLAGSP], 2    ;is the drone active?
     jc next_drone_score     ;if the drone is not active
     cmp ecx, dword [ebx + SCOREP]    ;if(drone_i->score < ecx)
     jle next_drone_score
@@ -91,7 +92,7 @@ scheduler_co_routine:
     jmp check_scores
     check_scores_end:   ;eax has the index of the drone with the lowest score
     mov ebx, [drones_array + 4 * eax]
-    bts [ebx + FLAGSP], 2   ;destroy the drone
+    bts dword [ebx + FLAGSP], 2   ;destroy the drone
     mov ecx, [ebp - 4]
     dec ecx
     mov [ebp - 4], ecx  ; active_drones-- 
@@ -103,7 +104,7 @@ scheduler_co_routine:
     mov esi, 0  ; esi = 0
     check_active_drone:
     mov ebx, [drones_array + 4 * esi]  
-    bt [ebx + FLAGSP], 2    ;is the drone active?
+    bt dword [ebx + FLAGSP], 2    ;is the drone active?
     jnc check_active_drone_end  ;if the drone is active
     inc esi
     jmp check_active_drone

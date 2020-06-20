@@ -83,17 +83,9 @@ change_drone_position:
     finit
 
     call random_generator
-    ; push ax
-    ; call angle_scale
     scale delta_angle, min_delta_angle, max_delta_angle
-    ;add esp, 4
-    ;mov [delta_angle], eax               ;putting the random number in delta_angle
     call random_generator
-    ; push ax
-    ; call speed_scale
     scale delta_speed, min_delta_speed, max_delta_speed
-    ;//add esp, 4
-    ;//mov [delta_speed], eax     ;putting the random number in speed
     
     ; calculate new x
     fld qword [angle]   ;load angle
@@ -105,13 +97,6 @@ change_drone_position:
     fmulp               ; angle * pi / 180
     fcos                ; cosα
     fmul qword [speed]  ; speed * cosα
-    ; fld qword [angle]   ;load angle
-    ; fldpi
-    ; fdiv 180
-    ; fmulp             ;angle * pi / 180
-    ; fcos                ;cosα
-    ; fmul qword [speed] ;x = speed * cosα
-
     push dword 99
     ficom dword [esp]           ;compare ST(0) with the value of the real8_var variable
     fstsw ax            ;copy the Status Word containing the result to AX
@@ -141,12 +126,6 @@ change_drone_position:
     fmulp               ; angle * pi / 180
     fsin                ; sinα
     fmul qword [speed]
-    ; fld qword [angle]
-    ; fldpi
-    ; fdiv 180
-    ; fmulp             ;angle * pi / 180
-    ; fsin
-    ; fmul qword [speed]  ;y = speed * sinα
     push dword 99
     ficom dword [esp]          ;compare ST(0) with the value of the real8_var variable
     fstsw ax            ;copy the Status Word containing the result to AX
@@ -227,62 +206,6 @@ mayDestroy:
 drone_co_routine:
     finit
     call change_drone_position
-
-    ; call random_generator
-    ; ; push ax
-    ; ; call angle_scale
-    ; scale delta_angle, 60
-    ; add esp, 4
-    ; //mov [delta_angle], eax               ;putting the random number in angle
-    ; call random_generator
-    ; ; push ax
-    ; ; call speed_scale
-    ; scale delta_speed, 10
-    ; add esp, 4
-    ; //mov [delta_speed], eax     ;putting the random number in speed
-    ; fld qword [angle]   ;load angle
-    ; fldpi
-    ; fdiv 180
-    ; fmulp           ;angle * pi / 180
-    ; fcos                ;cosα
-    ; fmul qword [speed] ;speed * cosα
-    ; fst qword [x]   ;x = speed * cosα
-    ; cmp qword [x], 99
-    ; jle no_x_wrap
-    ; fsub 100
-    ; fst qword [x]
-    ; no_x_wrap:
-    ; ffree
-    ; fld qword [angle]
-    ; fldpi
-    ; fdiv 180
-    ; fmulp           ;angle * pi / 180
-    ; fsin
-    ; fmul qword [speed]
-    ; fst qword [y]   ;y = speed * sinα
-    ; cmp qword [y], 99
-    ; jle no_y_wrap
-    ; fsub 100
-    ; fst qword [y]
-    ; no_y_wrap:
-    ; ffree
-    ; fld qword [angle]
-    ; fadd qword [delta_angle]   ;angle += ∆α
-    ; fst qword [angle]
-    ; wraparound:       ;
-    ; cmp qword [angle], 360
-    ; jle wraparound_end
-    ; fsub 360
-    ; fst qword [angle]
-    ; jmp wraparound
-    ; wraparound_end:
-    ; ffree
-    ; fld qword [speed]
-    ; fadd qword [delta_speed]    ;speed += delta_speed 
-    ; fst qword [speed]
-    ; cmp qword [speed], 100      ;if speed > 100 -> speed = 100
-    ; jle drone_while_start
-    ; mov qword [speed], 100
 
     drone_while_start:
     push dword [x + 4]
