@@ -111,13 +111,14 @@ scheduler_co_routine:
     check_scores_end:   ;eax has the index of the drone with the lowest score
     mov ebx, [drones_array + 4 * eax]   ;go to the drone with the lowest score
     bts dword [ebx + FLAGSP], 2   ;destroy the drone
-    mov ecx, [ebp - 4]
-    dec ecx
-    mov [ebp - 4], ecx  ; active_drones-- 
+    ; mov ecx, [ebp - 4]
+    ; dec ecx
+    ; mov [ebp - 4], ecx  ; active_drones-- 
+    dec dword [ebp - 4] ;active--
     no_destroy:
     inc edi     ;i++
-    mov ecx, [ebp -4]   ;check how many drones are left
-    cmp ecx, 1  ;if there are more than 1 active drone
+    ;mov ecx, [ebp -4]   ;check how many drones are left
+    cmp dword [ebp - 4], 1  ;if there are more than 1 active drone
     jg scheduler_start
     ;TODO: loop all drones check which one is active and put his index in ecx
     mov esi, 0  ; esi = 0
