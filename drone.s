@@ -46,6 +46,7 @@ section .data
     extern drones_array
     extern scheduler_cr
     extern d
+    extern target_cr
     ; variables to hold the co-routine state
     x:              dq 0
     y:              dq 0
@@ -72,7 +73,7 @@ section .text
     extern printf
     extern co_init
     extern resume
-    extern target_cr
+    
 
 change_drone_position:      
     push ebp
@@ -218,6 +219,27 @@ mayDestroy:
     mov ebp, esp
     pushad
     ; TODO: implement
+    mov eax, 0  ;can't destroy
+    finit
+    mov ebx, [target_cr]
+    fld qword [ebx + XP]    
+    fld qword [x]
+    fsubp   ;(x-xp)
+    fst st1
+    fmulp   ;st0 = (x-xp)^2
+    fld qword [ebx + YP]
+    fld qword [y]
+    fsub
+    fst st1
+    fmulp
+    faddp
+    fsqrt
+    fld qword [d]
+    fcom
+    ja no_destroy
+    mov eax, 1
+
+    no_destroy:
     popad
     mov esp, ebp
     pop ebp
@@ -285,12 +307,12 @@ drone_co_routine:
     ; mov qword [speed], 100
 
     drone_while_start:
-    push dword [x + 4]
-    push dword [x]
-    push dword [y + 4]
-    push dword [y]
+    ; push dword [x + 4]
+    ; push dword [x]
+    ; push dword [y + 4]
+    ; push dword [y]
     call mayDestroy     ;call mayDestroy with x and y
-    add esp, 16
+    ; add esp, 16
     cmp eax, 0
     je drone_while_end
     inc dword [score]
