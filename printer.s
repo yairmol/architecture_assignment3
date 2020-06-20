@@ -5,7 +5,7 @@ SPEEDP  equ 36
 SCOREP  equ 44
 
 %macro push_double 1
-    fld %1
+    fld qword %1
     sub esp, 8
     fstp qword [esp]
 %endmacro
@@ -17,6 +17,7 @@ section .data
     extern drones_array
     extern N
     extern scheduler_cr
+    extern resume
 
 section .text
     global printer_co_routine
@@ -47,7 +48,9 @@ printer_co_routine:
     push_double [ebx + ANGLEP]
     push_double [ebx + YP]
     push_double [ebx + XP]
-    push ecx + 1                ; TODO: check if this is valid command
+    inc ecx
+    push ecx                    ; TODO: check if this is valid command
+    dec ecx
     push drone_format
     call printf                 ; printf(drone_format, drone.x, drone.y, drone.angle, drone.speed, drone.scorep)
     add esp, 40

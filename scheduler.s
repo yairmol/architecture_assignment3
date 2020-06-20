@@ -29,12 +29,12 @@ scheduler_co_routine:
     finit
     sub esp, 8
 
-    push esp
-    push decimal_string_format
-    call printf
-    add esp, 8
-    mov ebx, main_cr
-    call resume
+    ; push esp
+    ; push decimal_string_format
+    ; call printf
+    ; add esp, 8
+    ; mov ebx, main_cr
+    ; call resume
 
     scheduler_start:
     mov ecx, [N]
