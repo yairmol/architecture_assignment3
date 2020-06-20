@@ -45,6 +45,7 @@ section .rodata
 section .data
     extern drones_array
     extern scheduler_cr
+    extern d
     ; variables to hold the co-routine state
     x:              dq 0
     y:              dq 0
@@ -71,6 +72,7 @@ section .text
     extern printf
     extern co_init
     extern resume
+    extern target_cr
 
 change_drone_position:      
     push ebp

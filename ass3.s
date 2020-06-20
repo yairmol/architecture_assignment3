@@ -51,6 +51,7 @@ section .data
 	global N
 	global K
 	global R
+	global d
 
 	; game configuration variables
 	N: dd 0		; number of drones
