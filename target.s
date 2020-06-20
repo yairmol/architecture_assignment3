@@ -18,7 +18,7 @@ STKSZ equ 64*4
 
 section .data
 	global target_cr
-	extern CURR
+	extern curr_drone
 
 	target_cr: dd target_co_routine
 	flags_target: dd 0
@@ -27,7 +27,7 @@ section .data
 	target_y: dq 0.0
 
 	zero: dq 0.0
-	hundred: dq 0.0
+	hundred: dq 100.0
 	max_int: dd 65535
 
 section .bss
@@ -44,7 +44,7 @@ target_co_routine:
 	; (*) call createTarget() function to create a new target with randon coordinates on the game board
 	call createTarget
 	; (*) switch to the co-routine of the "current" drone by calling resume(drone id) function
-	mov ebx, [CURR]
+	mov ebx, [curr_drone]
 	call resume
 	jmp target_co_routine
 

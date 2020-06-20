@@ -27,11 +27,17 @@
 
 %macro print 2
     pushad
-    push dword %1
-    push %2
+    push dword %2
+    push %1
     call printf
     add esp, 8
     popad
+%endmacro
+
+%macro push_double 1
+    fld qword %1
+    sub esp, 8
+    fstp qword [esp]
 %endmacro
 
 ; define constants
@@ -39,6 +45,11 @@ STKSZ 	equ 16*1024
 CODEP 	equ 0
 FLAGSP 	equ 4
 SPP 	equ 8
+XP      equ 12
+YP      equ 20
+ANGLEP  equ 28
+SPEEDP  equ 36
+SCOREP  equ 44
 
 section .rodata
 	argument_error_string: db "error: not enough arguments", 10, 0
@@ -49,6 +60,7 @@ section .rodata
 	right_string: db "rightmost", 10, 0
 	done_string: db "DONE!", 10, 0
 	pointer_string_format: db "pointer2: %p",10,0
+	drone_format: db "%d, %.2f, %.2f, %.2f, %.2f, %d",10,0
 
 section .data
 	global drones_array
@@ -74,7 +86,6 @@ section .data
 	CURR: dd 0	; pointer to the currently running co-routine
 	; a memory location holding a pointer to the beggining of the drones co-routine array
 	drones_array: dd 0
-	drone_cr_array: dd 0
 
 	; define the main co-routine
 	main_cr: dd main
@@ -178,7 +189,21 @@ main:
 	push done_string
 	call printf
 	add esp, 4
-	mov ebx, scheduler_cr
+	mov ebx, 4
+	mov ecx, [drones_array]
+	mov ebx, [ecx + ebx*4]
+	print pointer_string_format, ebx
+    push dword [ebx + SCOREP]   ; push arguments
+    push_double [ebx + SPEEDP]
+    push_double [ebx + ANGLEP]
+    push_double [ebx + YP]
+    push_double [ebx + XP]
+	mov ecx, 4
+    push ecx                    ; TODO: check if this is valid command
+    push drone_format
+    call printf                 ; printf(drone_format, drone.x, drone.y, drone.angle, drone.speed, drone.scorep)
+    add esp, 44
+	mov ebx, printer_cr
 	call resume
 	push done_string
 	call printf

@@ -47,7 +47,7 @@
 ; struct size: 48
 
 CRSZ    equ 48     ; co routine struct size is 48
-STKSZ 	equ 16*1024
+STKSZ 	equ 16*64
 CODEP 	equ 0
 FLAGSP 	equ 4
 SPP 	equ 8
@@ -67,6 +67,7 @@ section .data
     extern scheduler_cr
     extern d
     extern target_cr
+    extern curr_drone
     ; variables to hold the co-routine state
     x:              dq 0
     y:              dq 0
@@ -102,7 +103,8 @@ drone_co_routine:
     call mayDestroy
     cmp eax, 0          ; if mayDestroy returned false
     je cant_destroy     ; don't increment the score
-    inc dword [score]
+    mov ebx, [curr_drone]
+    inc dword [ebx + SCOREP]
     mov ebx, target_cr
     call resume
     cant_destroy:
@@ -125,7 +127,8 @@ change_drone_position:
     scale delta_speed, min_delta_speed, max_delta_speed
     
     ; calculate new x
-    fld qword [angle]   ;load angle
+    mov ebx, [curr_drone]
+    fld qword [ebx + ANGLEP]   ;load angle
     push dword 180
     fild dword [esp]
     pop eax
@@ -133,18 +136,18 @@ change_drone_position:
     fldpi
     fmulp               ; angle * pi / 180
     fcos                ; cosα
-    fmul qword [speed]  ; speed * cosα
+    fmul qword [ebx + SPEEDP]  ; speed * cosα
     fstp qword [temp]
     push dword 100
     fild dword [esp]
     pop eax
     fld qword [temp]
     fprem
-    fstp qword [x]
+    fstp qword [ebx + XP]
     ffree
 
     ; calculate new y
-    fld qword [angle]
+    fld qword [ebx + ANGLEP]
     push dword 180
     fild dword [esp]
     pop eax
@@ -152,18 +155,18 @@ change_drone_position:
     fldpi
     fmulp               ; angle * pi / 180
     fsin                ; sinα
-    fmul qword [speed]
+    fmul qword [ebx + SPEEDP]
     fstp qword [temp]
     push dword 100
     fild dword [esp]
     pop eax
     fld qword [temp]
     fprem
-    fstp qword [y]
+    fstp qword [ebx + YP]
     ffree
 
     ; calculate new angle
-    fld qword [angle]   
+    fld qword [ebx + ANGLEP]   
     fadd qword [delta_angle]   ;angle += ∆α
     ; wraparound:       ;
     fstp qword [temp]
@@ -172,12 +175,13 @@ change_drone_position:
     pop eax
     fld qword [temp]
     fprem
-    fstp qword [angle]
+    fstp qword [ebx + ANGLEP]
     ffree
 
     ; calculate new speed
-    fld qword [speed]
-    fadd qword [delta_speed]    ;speed += delta_speed 
+    fld qword [ebx + SPEEDP]
+    fadd qword [delta_speed]    ;speed += delta_speed
+    fst qword [ebx + SPEEDP]  
     push dword 100
     ficom dword [esp]   ;compare ST(0) with the value of the real8_var variable
     pop eax
@@ -189,7 +193,7 @@ change_drone_position:
     push dword 100
     fild dword [esp]
     pop eax
-    fstp qword [speed]
+    fstp qword [ebx + SPEEDP]
 
     change_drone_position_end:
     popad
@@ -202,16 +206,17 @@ mayDestroy:
     mov ebp, esp
     sub esp, 4
     pushad
-    mov [ebp - 4], 0    ;can't destroy
+    mov dword [ebp - 4], 0    ;can't destroy
     finit
     mov ebx, target_cr
-    fld qword [ebx + XP]    
-    fld qword [x]
+    fld qword [ebx + XP]
+    mov ecx, [curr_drone]    
+    fld qword [ecx + XP]
     fsubp               ; (target.x - drone.x)
     fst st1             ; duplicate st0
     fmulp               ; st0 = (target.x - drone.x)^2
     fld qword [ebx + YP]
-    fld qword [y]
+    fld qword [ecx + YP]
     fsubp               ; (target.y - drone.y)
     fst st1             ; duplicate st0
     fmulp               ; st0 = (target.y - drone.y)^2
@@ -220,7 +225,7 @@ mayDestroy:
     fld qword [d]       
     fcom                ; distance > d ?
     ja no_destroy       ; if yes, don't destroy the target
-    mov [ebp - 4], 1    
+    mov dword [ebp - 4], 1    
 
     no_destroy:
     popad
@@ -234,13 +239,15 @@ mayDestroy:
 drone_init:
     ; init the drone co-routne struct
 	pushad
+    finit
     print drone_co_routine, pointer_string_format
     push ebx
     push dword CRSZ
     call malloc                 ; malloc(CRSZ) allocate a co-routine struct 
     add esp, 4
     pop ebx
-    mov [drones_array + ebx*4], eax ; store the pointer to the co-routine in the drones co-routine array
+    mov ecx, [drones_array]
+    mov [ecx + ebx*4], eax ; store the pointer to the co-routine in the drones co-routine array
     mov ebx, eax                ; ebx now points to the co-routine struct
     mov dword [ebx + CODEP], drone_co_routine
     mov dword [ebx + FLAGSP], 0
@@ -251,7 +258,6 @@ drone_init:
     pop ebx
     mov [ebx + SPP], eax        ; set co-routine stack pointer
     add dword [ebx + SPP], STKSZ; set stack pointer to top of the stack
-
     ; generate random initial properties
     call random_generator       ; generate initial x coordinate
     scale ebx + XP, zero, hundred

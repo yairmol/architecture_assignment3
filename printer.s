@@ -18,10 +18,20 @@ SCOREP  equ 44
     add esp, 8
     popad
 %endmacro
+
+%macro print 2
+    pushad
+    push dword %2
+    push dword %1
+    call printf
+    add esp, 8
+    popad
+%endmacro
 section .rodata
     target_format: db "%.2f, %.2f",10,0
     drone_format: db "%d, %.2f, %.2f, %.2f, %.2f, %d",10,0
     decimal_format: db "printer dec: %d",10,0
+	pointer_string_format: db "pointer_printer: %p",10,0
 section .data
     extern target_cr
     extern drones_array
@@ -43,7 +53,9 @@ printer_co_routine:
     print_board_for_start:
     cmp ecx, [N]
     jge print_board_for_end
-    mov ebx, [drones_array + ecx*4]
+    mov edx, [drones_array]
+    mov ebx, [edx + ecx*4]
+    print pointer_string_format, ebx
     push ecx
     push dword [ebx + SCOREP]   ; push arguments
     push_double [ebx + SPEEDP]
