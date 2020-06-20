@@ -48,14 +48,14 @@ scheduler_co_routine:
     mov ecx, [N]
     mov [ebp - 4], ecx  ;   [ebp - 4] -> active drones
     scheduler_start:
-    inc edi     ;i++
     mov eax, 0
     mov eax, edi
     mov edx, 0
     mov ecx, [N]
     div ecx
     mov ecx, edx    ;ecx = i % N
-    ;TODO check if a drone is active
+    ;check if a drone is active
+    inc ecx ;ecx = (i % N) + 1
     mov ebx, [drones_array + 4 * ecx]  ;i's drone co-routine
     bt dword [ebx + FLAGSP], 2    ;if a drone is active
     jc no_active
@@ -72,16 +72,26 @@ scheduler_co_routine:
     mov ebx, printer_cr  ;printer's co-routine
     call resume
     no_print:
+    ;check if (i/N)%R == 0
     mov eax, edi    ;eax = i 
     mov ecx, [N]
     mov edx, 0
     div ecx     ;eax = i/N
+    mov edx, 0  ;check if its correct
     mov ecx, [R]
     div ecx
     mov ecx, edx    ;ecx = (i/N)%R
     cmp ecx, 0
     jne no_destroy
-    ;//TODO: destroy
+    ;check if i%N ==0
+    mov eax, edi    ;eax = i
+    mov ecx, [N]
+    mov edx, 0
+    div ecx
+    mov ecx, edx    ; ecx = i % N
+    cmp ecx, 0
+    jne no_destroy
+    ;destroy
     mov esi, 0  ; esi = 0
     mov eax, 0  ; eax = drone with the lowest score
     mov ecx, 0xFFFFFFFF  ;ecx = score
@@ -99,14 +109,15 @@ scheduler_co_routine:
     inc esi
     jmp check_scores
     check_scores_end:   ;eax has the index of the drone with the lowest score
-    mov ebx, [drones_array + 4 * eax]
+    mov ebx, [drones_array + 4 * eax]   ;go to the drone with the lowest score
     bts dword [ebx + FLAGSP], 2   ;destroy the drone
     mov ecx, [ebp - 4]
     dec ecx
     mov [ebp - 4], ecx  ; active_drones-- 
     no_destroy:
-    mov ecx, [ebp -4]
-    cmp ecx, 1
+    inc edi     ;i++
+    mov ecx, [ebp -4]   ;check how many drones are left
+    cmp ecx, 1  ;if there are more than 1 active drone
     jg scheduler_start
     ;TODO: loop all drones check which one is active and put his index in ecx
     mov esi, 0  ; esi = 0
