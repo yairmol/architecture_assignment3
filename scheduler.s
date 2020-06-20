@@ -19,12 +19,12 @@ scheduler_co_routine:
 
     sub esp, 8
 
-    push esp
-    push decimal_string_format
-    call printf
-    add esp, 8
-    mov ebx, main_cr
-    call resume
+    ; push esp
+    ; push decimal_string_format
+    ; call printf
+    ; add esp, 8
+    ; mov ebx, main_cr
+    ; call resume
 
     scheduler_start:
     mov ecx, [N]
@@ -62,7 +62,7 @@ scheduler_co_routine:
     mov ecx, edx    ;ecx = (i/N)%R
     cmp ecx, 0
     jne no_destroy
-    //TODO: destroy
+    ;//TODO: destroy
     mov ecx, [ebp - 4]
     dec ecx
     mov [ebp - 4], ecx  ; active_drones-- 
