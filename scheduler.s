@@ -1,5 +1,14 @@
 ;define
+CRSZ    equ 48     ; co routine struct size is 12 
+STKSZ 	equ 16*1024
+CODEP 	equ 0
 FLAGSP 	equ 4
+SPP 	equ 8
+XP      equ 12
+YP      equ 20
+ANGLEP  equ 28
+SPEEDP  equ 36
+SCOREP  equ 44
 
 section .rodata
     decimal_string_format: db "stack pointer: %p", 10, 0
@@ -17,6 +26,7 @@ section .data
 
 scheduler_co_routine:
 
+    finit
     sub esp, 8
 
     push esp
@@ -39,8 +49,8 @@ scheduler_co_routine:
     ;TODO check if a drone is active
     dec ecx
     mov ebx, [drones_array + 4 * ecx]  ;i's drone co-routine
-    bt [ebx + FLAGSP], 2
-    jc no_active 
+    bt [ebx + FLAGSP], 2    ;if a drone is active
+    jc no_active
     call resume
     no_active:
     inc edi     ;i++
@@ -63,6 +73,25 @@ scheduler_co_routine:
     cmp ecx, 0
     jne no_destroy
     //TODO: destroy
+    mov esi, 0  ; esi = 0
+    mov eax, 0  ; eax = drone with the lowest score
+    mov ecx, 0xFFFFFFFF  ;ecx = score
+    check_scores:
+    cmp esi, dword [N]  
+    je check_scores_end
+    mov ebx, [drones_array + 4 * esi]
+    bt [ebx + FLAGSP], 2    ;is the drone active?
+    jc next_drone_score     ;if the drone is not active
+    cmp ecx, dword [ebx + SCOREP]    ;if(drone_i->score < ecx)
+    jle next_drone_score
+    mov ecx, [ebx + SCOREP]  ;ecx = drone i score
+    mov eax, esi
+    next_drone_score:
+    inc esi
+    jmp check_scores
+    check_scores_end:   ;eax has the index of the drone with the lowest score
+    mov ebx, [drones_array + 4 * eax]
+    bts [ebx + FLAGSP], 2   ;destroy the drone
     mov ecx, [ebp - 4]
     dec ecx
     mov [ebp - 4], ecx  ; active_drones-- 
@@ -71,7 +100,16 @@ scheduler_co_routine:
     cmp ecx, 1
     jg scheduler_start
     ;TODO: loop all drones check which one is active and put his index in ecx
-    push ecx
+    mov esi, 0  ; esi = 0
+    check_active_drone:
+    mov ebx, [drones_array + 4 * esi]  
+    bt [ebx + FLAGSP], 2    ;is the drone active?
+    jnc check_active_drone_end  ;if the drone is active
+    inc esi
+    jmp check_active_drone
+    check_active_drone_end:
+    inc esi
+    push esi
     push winner_string_format
     call printf
     add esp, 8
