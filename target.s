@@ -30,9 +30,12 @@ section .text
 	extern co_init
 
 target_co_routine:
-; TODO: implement the target co-routine as follows:
-; (*) call createTarget() function to create a new target with randon coordinates on the game board
-; (*) switch to the co-routine of the "current" drone by calling resume(drone id) function
+	; (*) call createTarget() function to create a new target with randon coordinates on the game board
+	call createTarget
+	; (*) switch to the co-routine of the "current" drone by calling resume(drone id) function
+	mov ebx, [CURR]
+	call resume
+	jmp target_co_routine
 
 createTarget:
 	pushad

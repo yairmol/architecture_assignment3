@@ -10,12 +10,6 @@
     ffree
 %endmacro
 
-; struct co-routine {
-;   void* codep
-;   int flags
-;   void* stp
-; }
-
 ; struct drone-co-routine {
 ;	void* codep;	the pointer to the next line of code to execute
 ;	int flags;		flags
@@ -40,7 +34,7 @@ SPEEDP  equ 36
 SCOREP  equ 44
 
 section .rodata
-    float_string_format: db "%lf", 10, 0
+    float_string_format: db "%f", 10, 0
     decimal_string_format: db "%d", 10, 0
 
 section .data
