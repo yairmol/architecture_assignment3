@@ -9,9 +9,19 @@ SCOREP  equ 44
     sub esp, 8
     fstp qword [esp]
 %endmacro
+
+%macro print_int 1
+    pushad
+    push dword %1
+    push decimal_format
+    call printf
+    add esp, 8
+    popad
+%endmacro
 section .rodata
-    target_format: db "%.2f,%.2f",10,0
-    drone_format: db "%d,%.2f,%.2f,%.2f,%.2f,%d",10,0
+    target_format: db "%.2f, %.2f",10,0
+    drone_format: db "%d, %.2f, %.2f, %.2f, %.2f, %d",10,0
+    decimal_format: db "printer dec: %d",10,0
 section .data
     extern target_cr
     extern drones_array
@@ -40,9 +50,9 @@ printer_co_routine:
     mov ecx, 0
     print_board_for_start:
     cmp ecx, [N]
-    je print_board_for_end
+    jge print_board_for_end
     mov ebx, [drones_array + ecx*4]
-    push ecx                    ; save ecx in case printf overrides it
+    push ecx
     push dword [ebx + SCOREP]   ; push arguments
     push_double [ebx + SPEEDP]
     push_double [ebx + ANGLEP]
@@ -53,8 +63,8 @@ printer_co_routine:
     dec ecx
     push drone_format
     call printf                 ; printf(drone_format, drone.x, drone.y, drone.angle, drone.speed, drone.scorep)
-    add esp, 40
-    pop ecx                     ; restore ecx
+    add esp, 44
+    pop ecx
     inc ecx
     jmp print_board_for_start
     print_board_for_end:

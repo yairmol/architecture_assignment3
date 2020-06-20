@@ -25,6 +25,15 @@
 	pop ebx					; restore ebx
 %endmacro
 
+%macro print 2
+    pushad
+    push dword %1
+    push %2
+    call printf
+    add esp, 8
+    popad
+%endmacro
+
 ; define constants
 STKSZ 	equ 16*1024
 CODEP 	equ 0
@@ -39,7 +48,7 @@ section .rodata
 	hexa_string_format: db "%X", 10, 0
 	right_string: db "rightmost", 10, 0
 	done_string: db "DONE!", 10, 0
-	pointer_string_format: db "main esp: %p",10,0
+	pointer_string_format: db "pointer2: %p",10,0
 
 section .data
 	global drones_array
@@ -174,7 +183,7 @@ main:
 	push done_string
 	call printf
 	add esp, 4
-	call free_memory
+	;call free_memory
 	end_main:
 	popad
 	mov esp, ebp

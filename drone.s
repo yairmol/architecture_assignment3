@@ -11,7 +11,6 @@
     fdivp       ;(ax * (b-a))/(2^16 -1)
     fld qword [%2]
     faddp        ;(ax * (b-a))/(2^16 -1) +a
-    print_float
     fstp qword [%1]
     ffree
 %endmacro
@@ -23,6 +22,15 @@
     push float_string_format
     call printf
     add esp, 12
+    popad
+%endmacro
+
+%macro print 2
+    pushad
+    push dword %1
+    push %2
+    call printf
+    add esp, 8
     popad
 %endmacro
 
@@ -52,6 +60,7 @@ SCOREP  equ 44
 section .rodata
     float_string_format: db "%f", 10, 0
     decimal_string_format: db "%d", 10, 0
+    pointer_string_format: db "pointer: %p", 10, 0
 
 section .data
     extern drones_array
@@ -74,11 +83,11 @@ section .data
     zero: dq 0.0
     hundred: dq 100.0
     max_int: dd 65535
+    temp: dq 0.0
 
 section .text
     global drone_init
     global drone_resume
-    global change_drone_position
     extern random_generator
     extern malloc
     extern printf
@@ -87,7 +96,6 @@ section .text
     
 
 change_drone_position: 
-         
     push ebp
 	mov ebp, esp
 	;//sub esp, 4
@@ -117,9 +125,13 @@ change_drone_position:
     ; fmulp             ;angle * pi / 180
     ; fcos                ;cosα
     ; fmul qword [speed] ;x = speed * cosα
+    fstp qword [temp]
     push dword 100
-    fprem dword [esp]
-    fst qword [x]
+    fild dword [esp]
+    pop eax
+    fld qword [temp]
+    fprem
+    fstp qword [x]
 
     ; push dword 99
     ; ficom dword [esp]           ;compare ST(0) with the value of the real8_var variable
@@ -156,9 +168,13 @@ change_drone_position:
     ; fmulp             ;angle * pi / 180
     ; fsin
     ; fmul qword [speed]  ;y = speed * sinα
+    fstp qword [temp]
     push dword 100
-    fprem dword [esp]
-    fst qword [y]
+    fild dword [esp]
+    pop eax
+    fld qword [temp]
+    fprem
+    fstp qword [y]
 
     ; push dword 99
     ; ficom dword [esp]          ;compare ST(0) with the value of the real8_var variable
@@ -184,9 +200,13 @@ change_drone_position:
     fadd qword [delta_angle]   ;angle += ∆α
     ;fst qword [angle]
     ; wraparound:       ;
+    fstp qword [temp]
     push dword 360
-    fprem dword [esp]
-    fsub qword [angle]
+    fild dword [esp]
+    pop eax
+    fld qword [temp]
+    fprem
+    fstp qword [angle]
 
     ; push dword 360
     ; ficom dword [esp]   ;compare ST(0) with the value of the real8_var variable
@@ -211,6 +231,7 @@ change_drone_position:
     ;fst qword [speed]
     push dword 100
     ficom dword [esp]   ;compare ST(0) with the value of the real8_var variable
+    pop eax
     fstsw ax          ;copy the Status Word containing the result to AX
     fwait             ;insure the previous instruction is completed
     sahf              ;transfer the condition codes to the CPU's flag register
@@ -221,6 +242,7 @@ change_drone_position:
 
     push dword 100
     fild dword [esp]
+    pop eax
     fstp qword [speed]
 
     change_drone_position_end:
@@ -290,6 +312,7 @@ drone_co_routine:
 drone_init:
     ; init the drone co-routne struct
 	pushad
+    print drone_co_routine, pointer_string_format
     push ebx
     push dword CRSZ
     call malloc                 ; malloc(CRSZ) allocate a co-routine struct 

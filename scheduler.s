@@ -9,10 +9,18 @@ YP      equ 20
 ANGLEP  equ 28
 SPEEDP  equ 36
 SCOREP  equ 44
-
+%macro print 2
+    pushad
+    push dword %1
+    push dword %2
+    call printf
+    add esp, 8
+    popad
+%endmacro
 section .rodata
     decimal_string_format: db "stack pointer: %p", 10, 0
     winner_string_format: db "The Winner is drone: %d", 10, 0
+    decimal_k_format: db "K: %d",10,0
 section .text
     global scheduler_co_routine
     extern printf
@@ -27,7 +35,6 @@ section .data
     extern printer_cr
 
 scheduler_co_routine:
-
     sub esp, 8
 
     ; push esp
@@ -37,10 +44,11 @@ scheduler_co_routine:
     ; mov ebx, main_cr
     ; call resume
 
-    mov edi, 1  ;edi = i
+    mov edi, 0  ;edi = i
     mov ecx, [N]
     mov [ebp - 4], ecx  ;   [ebp - 4] -> active drones
     scheduler_start:
+    inc edi     ;i++
     mov eax, 0
     mov eax, edi
     mov edx, 0
@@ -48,27 +56,26 @@ scheduler_co_routine:
     div ecx
     mov ecx, edx    ;ecx = i % N
     ;TODO check if a drone is active
-    dec ecx
     mov ebx, [drones_array + 4 * ecx]  ;i's drone co-routine
     bt dword [ebx + FLAGSP], 2    ;if a drone is active
     jc no_active
     call resume
     no_active:
-    inc edi     ;i++
     mov eax, edi
+    mov edx, 0
     mov ecx, [K]
     div ecx
     mov ecx, edx    ;ecx = i % K
+    print ecx, decimal_k_format
     cmp ecx, 0
     jne no_print
     mov ebx, printer_cr  ;printer's co-routine
     call resume
     no_print:
-    mov eax, edi    ;eax = i
-    mov ecx, 0 
+    mov eax, edi    ;eax = i 
     mov ecx, [N]
+    mov edx, 0
     div ecx     ;eax = i/N
-    mov ecx, 0 
     mov ecx, [R]
     div ecx
     mov ecx, edx    ;ecx = (i/N)%R
@@ -115,7 +122,7 @@ scheduler_co_routine:
     push winner_string_format
     call printf
     add esp, 8
-    mov ebx, 0  ;resume main
+    mov ebx, main_cr  ;resume main
     call resume
 
 ; TODO: implement the scheduler co-routine as follows:
