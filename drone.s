@@ -94,17 +94,33 @@ section .text
     extern co_init
     extern resume
     
+drone_co_routine:
+    finit
+    call change_drone_position
+
+    drone_while_start:
+    call mayDestroy
+    cmp eax, 0          ; if mayDestroy returned false
+    je cant_destroy     ; don't increment the score
+    inc dword [score]
+    mov ebx, target_cr
+    call resume
+    cant_destroy:
+    call change_drone_position
+    mov ebx, scheduler_cr
+    call resume
+    jmp drone_while_start
+    drone_while_end:
 
 change_drone_position: 
     push ebp
 	mov ebp, esp
-	;//sub esp, 4
-    pushfd
 	pushad
-    ; finit
-    ffree
+    finit
+    ; generate random delta angle
     call random_generator
     scale delta_angle, min_delta_angle, max_delta_angle
+    ; generate random delta speed
     call random_generator
     scale delta_speed, min_delta_speed, max_delta_speed
     
@@ -118,13 +134,6 @@ change_drone_position:
     fmulp               ; angle * pi / 180
     fcos                ; cosα
     fmul qword [speed]  ; speed * cosα
-
-    ; fld qword [angle]   ;load angle
-    ; fldpi
-    ; fdiv 180
-    ; fmulp             ;angle * pi / 180
-    ; fcos                ;cosα
-    ; fmul qword [speed] ;x = speed * cosα
     fstp qword [temp]
     push dword 100
     fild dword [esp]
@@ -132,24 +141,6 @@ change_drone_position:
     fld qword [temp]
     fprem
     fstp qword [x]
-
-    ; push dword 99
-    ; ficom dword [esp]           ;compare ST(0) with the value of the real8_var variable
-    ; fstsw ax            ;copy the Status Word containing the result to AX
-    ; fwait               ;insure the previous instruction is completed
-    ; sahf                ;transfer the condition codes to the CPU's flag register
-    ; ;jpe error_handler  ;the comparison was indeterminate
-        
-    ; jb    no_x_wrap     ;only the C0 bit (CF flag) would be set if no error   => x < 99
-    ; jz    no_x_wrap     ;only the C3 bit (ZF flag) would be set if no error    => x = 99
-
-    ; push dword 100
-    ; fild dword [esp]
-    ; pop eax
-    ; fsubp               ; if (x > 100) then  x = x - 100
-
-    ; no_x_wrap:
-    ; fst qword [x]
     ffree
 
     ; calculate new y
@@ -162,12 +153,6 @@ change_drone_position:
     fmulp               ; angle * pi / 180
     fsin                ; sinα
     fmul qword [speed]
-    ; fld qword [angle]
-    ; fldpi
-    ; fdiv 180
-    ; fmulp             ;angle * pi / 180
-    ; fsin
-    ; fmul qword [speed]  ;y = speed * sinα
     fstp qword [temp]
     push dword 100
     fild dword [esp]
@@ -175,30 +160,11 @@ change_drone_position:
     fld qword [temp]
     fprem
     fstp qword [y]
-
-    ; push dword 99
-    ; ficom dword [esp]          ;compare ST(0) with the value of the real8_var variable
-    ; fstsw ax            ;copy the Status Word containing the result to AX
-    ; fwait               ;insure the previous instruction is completed
-    ; sahf                ;transfer the condition codes to the CPU's flag register
-    ; ;jpe error_handler  ;the comparison was indeterminate
-        
-    ; jb    no_y_wrap     ;only the C0 bit (CF flag) would be set if no error   => x < 99
-    ; jz    no_y_wrap     ;only the C3 bit (ZF flag) would be set if no error    => x = 99
-    
-    ; push dword 100
-    ; fild dword [esp]
-    ; pop eax
-    ; fsubp               ; if (y > 100) then  y = y - 100
-
-    ; no_y_wrap:
-    ; fst qword [y]
     ffree
 
     ; calculate new angle
     fld qword [angle]   
     fadd qword [delta_angle]   ;angle += ∆α
-    ;fst qword [angle]
     ; wraparound:       ;
     fstp qword [temp]
     push dword 360
@@ -207,38 +173,18 @@ change_drone_position:
     fld qword [temp]
     fprem
     fstp qword [angle]
-
-    ; push dword 360
-    ; ficom dword [esp]   ;compare ST(0) with the value of the real8_var variable
-    ; fstsw ax          ;copy the Status Word containing the result to AX
-    ; fwait             ;insure the previous instruction is completed
-    ; sahf              ;transfer the condition codes to the CPU's flag register
-    ; ;jpe error_handler ;the comparison was indeterminate
-        
-    ; jb    wraparound_end   ;only the C0 bit (CF flag) would be set if no error   => angle < 360
-    ; jz    wraparound_end  ;only the C3 bit (ZF flag) would be set if no error    => angle = 360
-    
-    ; push dword 360
-    ; fisub dword [esp]
-    ; pop eax
-    ; wraparound_end:
-    ; fst qword [angle]
     ffree
 
     ; calculate new speed
     fld qword [speed]
     fadd qword [delta_speed]    ;speed += delta_speed 
-    ;fst qword [speed]
     push dword 100
     ficom dword [esp]   ;compare ST(0) with the value of the real8_var variable
     pop eax
     fstsw ax          ;copy the Status Word containing the result to AX
     fwait             ;insure the previous instruction is completed
     sahf              ;transfer the condition codes to the CPU's flag register
-    ;jpe error_handler ;the comparison was indeterminate
-        
-    jb    change_drone_position_end   ;only the C0 bit (CF flag) would be set if no error   => speed < 100
-    ;jz    change_drone_position_end  ;only the C3 bit (ZF flag) would be set if no error    => speed = 100
+    jb change_drone_position_end   ;only the C0 bit (CF flag) would be set if no error   => speed < 100
 
     push dword 100
     fild dword [esp]
@@ -247,7 +193,6 @@ change_drone_position:
 
     change_drone_position_end:
     popad
-    popfd
     mov esp, ebp
 	pop ebp
 	ret
@@ -255,57 +200,34 @@ change_drone_position:
 mayDestroy:
     push ebp
     mov ebp, esp
+    sub esp, 4
     pushad
-    ; TODO: implement
-    mov eax, 0  ;can't destroy
+    mov [ebp - 4], 0    ;can't destroy
     finit
-    mov ebx, [target_cr]
+    mov ebx, target_cr
     fld qword [ebx + XP]    
     fld qword [x]
-    fsubp   ;(x-xp)
-    fst st1
-    fmulp   ;st0 = (x-xp)^2
+    fsubp               ; (target.x - drone.x)
+    fst st1             ; duplicate st0
+    fmulp               ; st0 = (target.x - drone.x)^2
     fld qword [ebx + YP]
     fld qword [y]
-    fsub
-    fst st1
-    fmulp
-    faddp
-    fsqrt
-    fld qword [d]
-    fcom
-    ja no_destroy
-    mov eax, 1
+    fsubp               ; (target.y - drone.y)
+    fst st1             ; duplicate st0
+    fmulp               ; st0 = (target.y - drone.y)^2
+    faddp               ; st0 = (dx^2 + dy^2)
+    fsqrt               ; st0 = sqrt(st0)
+    fld qword [d]       
+    fcom                ; distance > d ?
+    ja no_destroy       ; if yes, don't destroy the target
+    mov [ebp - 4], 1    
 
     no_destroy:
     popad
+    mov eax, [ebp - 4]
     mov esp, ebp
     pop ebp
     ret
-
-
-drone_co_routine:
-    finit
-    call change_drone_position
-
-    drone_while_start:
-    ; push dword [x + 4]
-    ; push dword [x]
-    ; push dword [y + 4]
-    ; push dword [y]
-    call mayDestroy     ;call mayDestroy with x and y
-    ; add esp, 16
-    cmp eax, 0
-    je drone_while_end
-    inc dword [score]
-    mov ebx, scheduler_cr
-    call resume
-    call change_drone_position
-
-    jmp drone_while_start
-    drone_while_end:
-    mov ebx, scheduler_cr ;TODO: go to scheduler co routine
-    call resume
 
 
 ; assume ebx holds the id of the drone
@@ -339,10 +261,6 @@ drone_init:
     scale ebx + SPEEDP, zero, hundred
     call random_generator       ; generate initial speed
     scale ebx + ANGLEP, zero, max_angle
-    ; push eax
-    ; push decimal_string_format
-    ; call printf
-    ; add esp, 8
 
     ; print the generated values just to see that ecerything is ok
     push ebx

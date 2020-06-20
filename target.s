@@ -51,9 +51,9 @@ target_co_routine:
 createTarget:
 	pushad
 	call random_generator
-	scale zero, hundred, target_x
+	scale target_x, zero, hundred
 	call random_generator
-	scale hundred, zero, target_y
+	scale target_y, hundred, zero
 	popad
 	ret
 

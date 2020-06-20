@@ -28,11 +28,14 @@ section .text
     extern resume
 
 section .data
+    global curr_drone
     extern N
     extern K
     extern R
     extern drones_array
     extern printer_cr
+
+    curr_drone: dd 0
 
 scheduler_co_routine:
     sub esp, 8
