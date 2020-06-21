@@ -53,7 +53,7 @@ scheduler_co_routine:
     mov ecx, edx    ;ecx = i % N
     ;check if a drone is active
     ;inc ecx ;ecx = (i % N) + 1
-    print current_drone_string_format, ecx
+    ;print current_drone_string_format, ecx
     mov edx, [drones_array]
     mov ebx, [edx + 4 * ecx]  ;i's drone co-routine
     mov [curr_drone], ebx

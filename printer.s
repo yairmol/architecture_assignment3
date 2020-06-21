@@ -55,7 +55,6 @@ printer_co_routine:
     jge print_board_for_end
     mov edx, [drones_array]
     mov ebx, [edx + ecx*4]
-    print pointer_string_format, ebx
     push ecx
     push dword [ebx + SCOREP]   ; push arguments
     push_double [ebx + SPEEDP]

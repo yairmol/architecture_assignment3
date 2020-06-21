@@ -27,8 +27,8 @@
 
 %macro print 2
     pushad
-    push dword %1
-    push %2
+    push dword %2
+    push %1
     call printf
     add esp, 8
     popad
@@ -59,7 +59,7 @@ SCOREP  equ 44
 
 section .rodata
     float_string_format: db "%f", 10, 0
-    decimal_string_format: db "%d", 10, 0
+    decimal_string_format: db "score: %d", 10, 0
     pointer_string_format: db "pointer: %p", 10, 0
 
 section .data
@@ -101,6 +101,7 @@ drone_co_routine:
 
     drone_while_start:
     call mayDestroy
+    ;print decimal_string_format, eax
     cmp eax, 0          ; if mayDestroy returned false
     je cant_destroy     ; don't increment the score
     mov ebx, [curr_drone]
@@ -255,23 +256,24 @@ mayDestroy:
     mov ecx, [curr_drone]    
     fld qword [ecx + XP]
     fsubp               ; (target.x - drone.x)
-    fst st1             ; duplicate st0
+    fld st0             ; duplicate st0
     fmulp               ; st0 = (target.x - drone.x)^2
     fld qword [ebx + YP]
     fld qword [ecx + YP]
     fsubp               ; (target.y - drone.y)
-    fst st1             ; duplicate st0
+    fld st0             ; duplicate st0
     fmulp               ; st0 = (target.y - drone.y)^2
     faddp               ; st0 = (dx^2 + dy^2)
     fsqrt               ; st0 = sqrt(st0)
     fld qword [d]       
-    fcom                ; distance > d ?
-    ja no_destroy       ; if yes, don't destroy the target
+    fcomi st0, st1        ; d < distance ?
+    jb no_destroy       ; if yes, don't destroy the target
     mov dword [ebp - 4], 1    
 
     no_destroy:
     popad
     mov eax, [ebp - 4]
+    add esp, 4
     mov esp, ebp
     pop ebp
     ret
@@ -282,7 +284,7 @@ drone_init:
     ; init the drone co-routne struct
 	pushad
     finit
-    print drone_co_routine, pointer_string_format
+    ;print pointer_string_format, drone_co_routine
     push ebx
     push dword CRSZ
     call malloc                 ; malloc(CRSZ) allocate a co-routine struct 
@@ -311,32 +313,32 @@ drone_init:
     scale ebx + ANGLEP, zero, max_angle
 
     ; print the generated values just to see that ecerything is ok
-    push ebx
-    fld qword[ebx + XP]
-	sub esp,8
-	fstp qword[esp]
-	push float_string_format
-	call printf
-	add esp, 12
-    fld qword[ebx + YP]
-	sub esp,8
-	fstp qword[esp]
-	push float_string_format
-	call printf
-	add esp, 12
-    fld qword[ebx + ANGLEP]
-	sub esp,8
-	fstp qword[esp]
-	push float_string_format
-	call printf
-	add esp, 12
-    fld qword[ebx + SPEEDP]
-	sub esp,8
-	fstp qword[esp]
-	push float_string_format
-	call printf
-	add esp, 12
-    pop ebx
+    ; push ebx
+    ; fld qword[ebx + XP]
+	; sub esp,8
+	; fstp qword[esp]
+	; push float_string_format
+	; call printf
+	; add esp, 12
+    ; fld qword[ebx + YP]
+	; sub esp,8
+	; fstp qword[esp]
+	; push float_string_format
+	; call printf
+	; add esp, 12
+    ; fld qword[ebx + ANGLEP]
+	; sub esp,8
+	; fstp qword[esp]
+	; push float_string_format
+	; call printf
+	; add esp, 12
+    ; fld qword[ebx + SPEEDP]
+	; sub esp,8
+	; fstp qword[esp]
+	; push float_string_format
+	; call printf
+	; add esp, 12
+    ; pop ebx
 
     ; init the co-routine
     call co_init

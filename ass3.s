@@ -1,11 +1,11 @@
 ; parse_arg(arg, format, index)
 %macro parse_arg 3
-	push ebx				; save ebx in case sscanf overrides some registers
+	; push ebx				; save ebx in case sscanf overrides some registers
 	; push dword [ebx + 4*%3]
 	; push string_format
 	; call printf				; printf("%s\n", argv[index])
-	;add esp, 8
-	pop ebx
+	; add esp, 8
+	; pop ebx
 	push ebx
 	push %1
 	push %2
@@ -54,7 +54,7 @@ SCOREP  equ 44
 section .rodata
 	argument_error_string: db "error: not enough arguments", 10, 0
 	decimal_string_format: db "%d", 0
-	float_string_format: db "%f", 0
+	float_string_format: db "%lf", 0
 	string_format: db "%s", 10, 0
 	hexa_string_format: db "%X", 10, 0
 	right_string: db "rightmost", 10, 0
@@ -186,24 +186,10 @@ main:
 	drone_init_for_end:
 	mov dword [CURR], main_cr
 	; begin the simulation by starting the scheduler co-routine 
-	push done_string
-	call printf
-	add esp, 4
-	mov ebx, 4
-	mov ecx, [drones_array]
-	mov ebx, [ecx + ebx*4]
-	print pointer_string_format, ebx
-    push dword [ebx + SCOREP]   ; push arguments
-    push_double [ebx + SPEEDP]
-    push_double [ebx + ANGLEP]
-    push_double [ebx + YP]
-    push_double [ebx + XP]
-	mov ecx, 4
-    push ecx                    ; TODO: check if this is valid command
-    push drone_format
-    call printf                 ; printf(drone_format, drone.x, drone.y, drone.angle, drone.speed, drone.scorep)
-    add esp, 44
-	mov ebx, printer_cr
+	; push done_string
+	; call printf
+	; add esp, 4
+	mov ebx, scheduler_cr
 	call resume
 	push done_string
 	call printf
