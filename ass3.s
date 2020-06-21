@@ -50,6 +50,7 @@ YP      equ 20
 ANGLEP  equ 28
 SPEEDP  equ 36
 SCOREP  equ 44
+ISPP 	equ 48
 
 section .rodata
 	argument_error_string: db "error: not enough arguments", 10, 0
@@ -191,10 +192,7 @@ main:
 	; add esp, 4
 	mov ebx, scheduler_cr
 	call resume
-	push done_string
-	call printf
-	add esp, 4
-	;call free_memory
+	call free_memory
 	end_main:
 	popad
 	mov esp, ebp
@@ -283,15 +281,24 @@ free_memory:
 	mov ecx, 0
 	free_memory_for_start:
 		; TODO; fix this to free the real stack
-		mov ebx, [drones_array + ecx*4]
+		cmp ecx, [N]
+		je free_memory_for_end
+		mov edx, [drones_array]
+		mov ebx, [edx + ecx*4]
+		push ecx
 		push ebx			; save ebx in case free overrides it
-		push dword [ebx + SPP]
+		;print pointer_string_format, [ebx + ISPP]
+		push dword [ebx + ISPP]
 		call free
 		add esp, 4
 		pop ebx				; restore ebx
+		;print pointer_string_format, ebx
 		push ebx
 		call free			; free the allocated drone co-routine struct
 		add esp, 4
+		pop ecx
+		inc ecx
+		jmp free_memory_for_start
 	free_memory_for_end:
 	; free the drone pointers array
 	push dword [drones_array]

@@ -25,6 +25,7 @@ section .rodata
     winner_string_format: db "The Winner is drone: %d", 10, 0
     decimal_k_format: db "K: %d",10,0
     current_drone_string_format: db "current drone: %d",10,0
+    destroy_drone_format: db "drone %d destroyed",10,0
 section .text
     global scheduler_co_routine
     extern printf
@@ -96,7 +97,7 @@ scheduler_co_routine:
     ;destroy
     mov esi, 0  ; esi = 0
     mov eax, 0  ; eax = drone with the lowest score
-    mov ecx, 0xFFFFFF  ;ecx = score
+    mov ecx, 0x7FFFFFFF  ;ecx = score
     check_scores:
     cmp esi, dword [N]  
     je check_scores_end
@@ -114,6 +115,9 @@ scheduler_co_routine:
     check_scores_end:   ;eax has the index of the drone with the lowest score
     mov edx, [drones_array]
     mov ebx, [edx + 4 * eax]   ;go to the drone with the lowest score
+    inc eax
+    ; print destroy_drone_format, eax
+    dec eax
     bts dword [ebx + FLAGSP], 2   ;destroy the drone
     ; mov ecx, [ebp - 4]
     ; dec ecx
@@ -125,13 +129,12 @@ scheduler_co_routine:
     cmp ecx, 1  ;if there are more than 1 active drone
     jg scheduler_start
     ;TODO: loop all drones check which one is active and put his index in ecx
-    mov esi, 0  ; esi = 0
+    mov esi, 0
     check_active_drone:
     mov edx, [drones_array]
     mov ebx, [edx + 4 * esi]  
     bt dword [ebx + FLAGSP], 2    ;is the drone active?
     jnc check_active_drone_end  ;if the drone is active
-    print decimal_string_format, esi
     inc esi
     jmp check_active_drone
     check_active_drone_end:

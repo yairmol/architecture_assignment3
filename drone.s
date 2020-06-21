@@ -43,10 +43,11 @@
 ;	double angle;	drone's angle from the x axix in degrees [0, 360] (heading)
 ;	double speed; 	drone's speed
 ;   int score;
+;   void* initial_sp; the pointer the stack begining
 ; }
-; struct size: 48
+; struct size: 52
 
-CRSZ    equ 48     ; co routine struct size is 48
+CRSZ    equ 52     ; co routine struct size is 48
 STKSZ 	equ 16*64
 CODEP 	equ 0
 FLAGSP 	equ 4
@@ -56,6 +57,7 @@ YP      equ 20
 ANGLEP  equ 28
 SPEEDP  equ 36
 SCOREP  equ 44
+ISPP    equ 48
 
 section .rodata
     float_string_format: db "%f", 10, 0
@@ -291,6 +293,7 @@ drone_init:
     push dword CRSZ
     call malloc                 ; malloc(CRSZ) allocate a co-routine struct 
     add esp, 4
+    ;print pointer_string_format, eax
     pop ebx
     mov ecx, [drones_array]
     mov [ecx + ebx*4], eax ; store the pointer to the co-routine in the drones co-routine array
@@ -301,8 +304,10 @@ drone_init:
     push STKSZ
     call malloc                 ; malloc(STKSZ) allocate a stack for this co-routine
     add esp, 4
+    ;print pointer_string_format, eax
     pop ebx
     mov [ebx + SPP], eax        ; set co-routine stack pointer
+    mov [ebx + ISPP], eax
     add dword [ebx + SPP], STKSZ; set stack pointer to top of the stack
     ; generate random initial properties
     call random_generator       ; generate initial x coordinate
