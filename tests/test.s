@@ -2,36 +2,70 @@
 %macro scale 3
     push eax
 	fild dword [esp]    ;load ax
+    ;print_float
     pop eax
-    fld qword %3
-    fld qword %2
+    fld qword [%3]
+    fld qword [%2]
     fsubp
+    ;print_float
     fmulp       ; ax * (b-a)
+    ;print_float
     fild dword [max_int]
+    ;print_float
     fdivp       ;(ax * (b-a))/(2^16 -1)
-    fld qword %2
+    ;print_float
+    fld qword [%2]
+    ;print_float
     faddp        ;(ax * (b-a))/(2^16 -1) +a
+    ;print_float
     fstp qword [%1]
     ffree
 %endmacro
+%macro print_float 0
+    pushad
+    sub esp, 8
+    fst qword [esp]
+    push float_string_format
+    call printf
+    add esp, 12
+    popad
+%endmacro
+
+section .rodata
+    float_string_format: db "%f",10,0
 
 section .data
+    global x
+    global y
+    global angle
+    global speed
+    global target_x
+    global target_y 
+    global d
     seed_1: dw 0xACE1
     seed: dw 0xACE1
-    angle_max: dq 60.0
-    angle_min: dq -60.0
-    speed_max: dq 10.0
-    speed_min: dq -10.0
-    max_int: dw 65535
+    max_delta_angle: dq 60.0
+    min_delta_angle: dq -60.0
+    max_delta_speed: dq 10.0
+    min_delta_speed: dq -10.0
+    max_int: dd 65535
     delta_angle: dq 0
     delta_speed: dq 0
+    temp: dq 0.0
     x: dq 0
     y: dq 0
     speed: dq 0
     angle: dq 0
+    target_x: dq 0.0
+    target_y: dq 0.0
+    d: dq 0.0
 
 section .text
     global random_generator_1
+    global mayDestroy
+    global change_drone_position
+    extern printf
+    extern random_generator2
 
 random_generator_1:
     push ebp
@@ -108,27 +142,61 @@ random_generator:
 	pop ebp
 	ret
 
-move_drone:     
+
+mayDestroy:
+    push ebp
+    mov ebp, esp
+    sub esp, 4
+    pushad
+    mov dword [ebp - 4], 0    ;can't destroy
+    finit
+    fld qword [target_x]    
+    fld qword [x]
+    fsubp               ; (target.x - drone.x)
+    ;print_float
+    fld st0             ; duplicate st0
+    fmulp               ; st0 = (target.x - drone.x)^2
+    ;print_float
+    fld qword [target_y]
+    fld qword [y]
+    fsubp               ; (target.y - drone.y)
+    ;print_float
+    fld st0             ; duplicate st0
+    fmulp               ; st0 = (target.y - drone.y)^2
+    ;print_float
+    faddp               ; st0 = (dx^2 + dy^2)
+    ;print_float
+    fsqrt               ; st0 = sqrt(st0)
+    ;print_float
+    fld qword [d]       
+    ;print_float
+    fcomi st0, st1        ; d < distance ?
+    jb no_destroy       ; if yes, don't destroy the target
+    mov dword [ebp - 4], 1    
+
+    no_destroy:
+    popad
+    mov eax, [ebp - 4]
+    add esp, 4
+    mov esp, ebp
+    pop ebp
+    ret
+
+change_drone_position: 
     push ebp
 	mov ebp, esp
-	;//sub esp, 4
-    pushfd
 	pushad
     finit
-
-    call random_generator
-    ; push ax
-    ; call angle_scale
-    scale delta_angle, [angle_min], [angle_max]
-    ;add esp, 4
-    ;mov [delta_angle], eax               ;putting the random number in delta_angle
-    call random_generator
-    ; push ax
-    ; call speed_scale
-    scale delta_speed, [speed_min], [speed_max]
-    ;//add esp, 4
-    ;//mov [delta_speed], eax     ;putting the random number in speed
+    ; generate random delta angle
+    call random_generator2
+    scale delta_angle, min_delta_angle, max_delta_angle
+    ; generate random delta speed
+    call random_generator2
+    scale delta_speed, min_delta_speed, max_delta_speed
+    
+    ; calculate new x
     fld qword [angle]   ;load angle
+    ;print_float
     push dword 180
     fild dword [esp]
     pop eax
@@ -136,17 +204,32 @@ move_drone:
     fldpi
     fmulp               ; angle * pi / 180
     fcos                ; cosα
+    ;print_float
     fmul qword [speed]  ; speed * cosα
-    fst qword [x]       ; x = speed * cosα
-    ;cmp qword [x], 99   ; TODO: change comparison
-    jle no_x_wrap
+    ;print_float
+    fstp qword [temp]
     push dword 100
     fild dword [esp]
-    fsubp 
     pop eax
-    fst qword [x]
-    no_x_wrap:
+    fld qword [temp]
+    fadd qword [x]
+    fprem
+    ;print_float
+    ftst    ;compare ST(0) with 0.0
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    ja not_negative_x
+    jz not_negative_x
+    push dword 100
+    fild dword [esp]
+    pop eax
+    faddp
+    not_negative_x:
+    fstp qword [x]
     ffree
+
+    ; calculate new y
     fld qword [angle]
     push dword 180
     fild dword [esp]
@@ -156,43 +239,78 @@ move_drone:
     fmulp               ; angle * pi / 180
     fsin                ; sinα
     fmul qword [speed]
-    fst qword [y]       ; y = speed * sinα
-    ;cmp qword [y], 99   ; TODO: change comparison
-    jle no_y_wrap
+    fstp qword [temp]
     push dword 100
     fild dword [esp]
     pop eax
-    fsubp
-    fst qword [y]
-    no_y_wrap:
+    fld qword [temp]
+    fadd qword [y]
+    fprem
+    ftst    ;compare ST(0) with 0.0
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    ja not_negative_y
+    jz not_negative_y
+    push dword 100
+    fild dword [esp]
+    pop eax
+    faddp
+    not_negative_y:
+    fstp qword [y]
     ffree
-    fld qword [angle]
-    fadd qword [delta_angle]    ; angle += ∆α
-    fst qword [angle]
-    wraparound:       
-    ;cmp qword [angle], 360  ; TODO: change comparison
-    jle wraparound_end
+
+    ; calculate new angle
+    fld qword [angle]   
+    fadd qword [delta_angle]   ;angle += ∆α
+    ; wraparound:       
+    fstp qword [temp]
     push dword 360
     fild dword [esp]
     pop eax
-    fsubp
-    fst qword [angle]
-    jmp wraparound
-    wraparound_end:
+    fld qword [temp]
+    fprem
+    ftst    ;compare with 0.0
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    ja not_negative_angle
+    jz not_negative_angle
+    push dword 360
+    fild dword [esp]
+    pop eax
+    faddp
+    not_negative_angle:
+    fstp qword [angle]
     ffree
+
+    ; calculate new speed
     fld qword [speed]
-    fadd qword [delta_speed]    ; speed += delta_speed 
-    fst qword [speed]
-    ;cmp qword [speed], 100      ; if speed > 100 -> speed = 100 ; TODO: change comparison
-    jle change_drone_position_end
+    fadd qword [delta_speed]    ;speed += delta_speed
+    fst qword [speed]  
+    push dword 100
+    ficom dword [esp]   ;compare ST(0) with the value of the real8_var variable
+    pop eax
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    jb check_negative_speed   ;only the C0 bit (CF flag) would be set if no error   => speed < 100
     push dword 100
     fild dword [esp]
     pop eax
     fstp qword [speed]
+    jmp change_drone_position_end
+    check_negative_speed:
+    ftst    ;compare ST(0) with 0.0
+    fstsw ax          ;copy the Status Word containing the result to AX
+    fwait             ;insure the previous instruction is completed
+    sahf              ;transfer the condition codes to the CPU's flag register
+    ja change_drone_position_end
+    fldz    ; fld 0
+    fstp qword [speed]
 
     change_drone_position_end:
     popad
-    popfd
     mov esp, ebp
 	pop ebp
 	ret

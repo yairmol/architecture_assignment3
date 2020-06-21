@@ -143,6 +143,7 @@ change_drone_position:
     fild dword [esp]
     pop eax
     fld qword [temp]
+    fadd qword [ebx + XP]
     fprem
 
     ftst    ;compare ST(0) with 0.0
@@ -174,6 +175,7 @@ change_drone_position:
     fild dword [esp]
     pop eax
     fld qword [temp]
+    fadd qword [ebx + YP]
     fprem
     ftst    ;compare ST(0) with 0.0
     fstsw ax          ;copy the Status Word containing the result to AX
