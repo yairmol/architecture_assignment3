@@ -20,6 +20,7 @@ SCOREP  equ 44
 %endmacro
 
 section .rodata
+    decimal_string_format2: db "drone destroyed: %d", 10, 0
     decimal_string_format: db "debug: %d", 10, 0
     winner_string_format: db "The Winner is drone: %d", 10, 0
     decimal_k_format: db "K: %d",10,0
@@ -95,7 +96,7 @@ scheduler_co_routine:
     ;destroy
     mov esi, 0  ; esi = 0
     mov eax, 0  ; eax = drone with the lowest score
-    mov ecx, 0xFFFFFFFF  ;ecx = score
+    mov ecx, 0xFFFFFF  ;ecx = score
     check_scores:
     cmp esi, dword [N]  
     je check_scores_end
@@ -105,7 +106,7 @@ scheduler_co_routine:
     jc next_drone_score     ;if the drone is not active
     cmp ecx, dword [ebx + SCOREP]    ;if(drone_i->score < ecx)
     jle next_drone_score
-    mov ecx, [ebx + SCOREP]  ;ecx = drone i score
+    mov ecx, dword [ebx + SCOREP]  ;ecx = drone i score
     mov eax, esi
     next_drone_score:
     inc esi
@@ -130,6 +131,7 @@ scheduler_co_routine:
     mov ebx, [edx + 4 * esi]  
     bt dword [ebx + FLAGSP], 2    ;is the drone active?
     jnc check_active_drone_end  ;if the drone is active
+    print decimal_string_format, esi
     inc esi
     jmp check_active_drone
     check_active_drone_end:
